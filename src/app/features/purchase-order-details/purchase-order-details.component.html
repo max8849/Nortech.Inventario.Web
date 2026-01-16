@@ -30,8 +30,7 @@
       <button *ngIf="isAdmin" mat-stroked-button type="button" (click)="print()">
         <mat-icon>print</mat-icon>
         Imprimir
-    </button>
-
+      </button>
 
       <button
         *ngIf="isPending()"
@@ -66,6 +65,102 @@
       <div class="noteTitle">Nota</div>
       <div class="noteText">{{ po?.note }}</div>
     </div>
+  </div>
+
+  <!-- ✅ EVIDENCIA -->
+  <div class="evidence" *ngIf="po">
+    <div class="evidenceHead">
+      <div class="evidenceTitle">
+        <mat-icon>photo_camera</mat-icon>
+        <div>
+          <div class="t">Evidencia</div>
+          <div class="muted s">Fotos/archivos relacionados a esta OC.</div>
+        </div>
+      </div>
+
+      <div class="evidenceActions">
+        <!-- Subir evidencia: típicamente solo cuando está pendiente -->
+        <ng-container *ngIf="isPending()">
+          <!-- input oculto -->
+          <input
+            #evidenceInput
+            type="file"
+            accept="image/*,.pdf"
+            style="display:none"
+            (change)="onEvidenceSelected($event)"
+          />
+
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="saving || evidenceUploading"
+            (click)="evidenceInput.click()"
+          >
+            <mat-icon>upload</mat-icon>
+            Subir
+          </button>
+
+          <div class="uploading" *ngIf="evidenceUploading">
+            <mat-spinner diameter="16"></mat-spinner>
+            <span>Subiendo...</span>
+          </div>
+        </ng-container>
+      </div>
+    </div>
+
+    <div class="evidenceGrid" *ngIf="(po.evidence?.length || 0) > 0; else noEvidence">
+      <div class="evCard" *ngFor="let ev of po.evidence">
+        <button class="evPreview" type="button" (click)="openEvidence(ev)">
+          <!-- preview si es imagen -->
+          <img
+            *ngIf="isImage(ev?.fileName)"
+            [src]="ev.url"
+            [alt]="ev.fileName"
+            loading="lazy"
+          />
+
+          <!-- placeholder si no es imagen -->
+          <div class="evFile" *ngIf="!isImage(ev?.fileName)">
+            <mat-icon>description</mat-icon>
+            <div class="name">{{ ev.fileName }}</div>
+          </div>
+        </button>
+
+        <div class="evMeta">
+          <div class="left">
+            <div class="fname" [title]="ev.fileName">{{ ev.fileName }}</div>
+            <div class="muted small">
+            {{ formatDateTime(ev.uploadedAtUtc) }}
+              <span class="dot">•</span>
+              {{ formatBytes(ev.sizeBytes) }}
+            </div>
+          </div>
+
+          <div class="right">
+            <button mat-icon-button type="button" (click)="openEvidence(ev)" aria-label="Abrir">
+              <mat-icon>open_in_new</mat-icon>
+            </button>
+
+            <button
+              *ngIf="isAdmin"
+              mat-icon-button
+              color="warn"
+              type="button"
+              (click)="deleteEvidence(ev)"
+              aria-label="Eliminar"
+            >
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #noEvidence>
+      <div class="emptyEvidence">
+        No hay evidencia cargada.
+      </div>
+    </ng-template>
   </div>
 
   <!-- Loading -->

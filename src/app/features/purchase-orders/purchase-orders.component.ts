@@ -16,6 +16,9 @@ import { finalize } from 'rxjs/operators';
 import { PurchaseOrdersApi, PurchaseOrderListRow } from '../../core/api/purchase-orders.api';
 import { BranchesApi } from '../../core/api/branches.api';
 
+// ✅ nuevo
+import { SectionsApi, SectionRow } from '../../core/api/sections.api';
+
 type BranchOpt = { id: number; name: string; isActive: boolean };
 
 @Component({
@@ -42,21 +45,22 @@ export class PurchaseOrdersComponent implements OnInit {
 
   // filtros admin
   branches: BranchOpt[] = [];
-  selectedBranchId = 0; // 0 = todas
-  selectedStatus = 0;   // 0 = todos, 1 = pending, 2 = received, 3 = cancelled (si lo usas)
+  selectedBranchId = 0;
+  selectedStatus = 0;
 
   rows: PurchaseOrderListRow[] = [];
-displayedColumns = this.isAdmin
-  ? ['id', 'branch', 'status', 'created', 'items', 'note', 'actions']
-  : ['id', 'status', 'created', 'items', 'note', 'actions'];
 
-    open(id: number) {
-    this.router.navigateByUrl(`/purchase-orders/${id}`);
-    }
+  // ✅ catálogo secciones (solo mostrar)
+  sections: SectionRow[] = [];
+
+  displayedColumns = this.isAdmin
+    ? ['id', 'branch', 'status', 'created', 'items', 'note', 'actions']
+    : ['id', 'status', 'created', 'items', 'note', 'actions'];
 
   constructor(
     private api: PurchaseOrdersApi,
     private branchesApi: BranchesApi,
+    private sectionsApi: SectionsApi, // ✅ nuevo
     private router: Router
   ) {}
 
@@ -70,9 +74,24 @@ displayedColumns = this.isAdmin
         },
         error: (e) => console.error('No se pudieron cargar sucursales', e)
       });
+
+      // ✅ cargar secciones activas (catálogo)
+      this.sectionsApi.list(false).subscribe({
+        next: (ss) => {
+          this.sections = (ss || []).filter(s => s.isActive);
+        },
+        error: (e) => {
+          console.error('No se pudieron cargar secciones', e);
+          this.sections = [];
+        }
+      });
     }
 
     this.load();
+  }
+
+  open(id: number) {
+    this.router.navigateByUrl(`/purchase-orders/${id}`);
   }
 
   load(): void {
@@ -93,16 +112,13 @@ displayedColumns = this.isAdmin
       });
   }
 
-  // helpers
   statusLabel(s: any): string {
-    // si backend manda number:
     if (typeof s === 'number') {
       if (s === 1) return 'PENDIENTE';
       if (s === 2) return 'RECIBIDA';
       if (s === 3) return 'CANCELADA';
       return String(s);
     }
-    // si manda string:
     const v = String(s || '').toLowerCase();
     if (v.includes('pending')) return 'PENDIENTE';
     if (v.includes('received')) return 'RECIBIDA';
@@ -112,12 +128,20 @@ displayedColumns = this.isAdmin
 
   shortDate(iso: string): string {
     if (!iso) return '';
-    // YYYY-MM-DD
     return iso.slice(0, 10);
   }
-  
-goCreate(): void {
-  this.router.navigateByUrl('/purchase-orders/create');
+
+  goCreate(): void {
+    this.router.navigateByUrl('/purchase-orders/create');
+  }
+  formatDateTime(isoUtc: string): string {
+  if (!isoUtc) return '';
+
+  const d = new Date(isoUtc); // "Z" => UTC, Date lo convierte a local automáticamente
+  return new Intl.DateTimeFormat('es-MX', {
+    dateStyle: 'medium',   // ej: 16 ene 2026
+    timeStyle: 'short',    // ej: 3:26 p. m.
+  }).format(d);
 }
-  
+
 }

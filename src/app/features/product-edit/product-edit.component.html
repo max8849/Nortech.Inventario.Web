@@ -3,23 +3,20 @@
 
     <div class="head">
       <div>
-        <h2>Crear producto (catálogo)</h2>
-        <p class="muted">Este producto quedará disponible para todas las sucursales.</p>
+        <h2>Editar producto</h2>
+        <p class="muted">Catálogo universal</p>
       </div>
     </div>
 
     <div class="grid">
       <mat-form-field appearance="outline">
         <mat-label>SKU</mat-label>
-        <input matInput formControlName="sku" placeholder="ej. 4555466" />
-        <button mat-icon-button matSuffix type="button" (click)="form.patchValue({ sku: generateSkuPublic() })">
-          <mat-icon>autorenew</mat-icon>
-        </button>
+        <input matInput formControlName="sku" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
         <mat-label>Nombre</mat-label>
-        <input matInput formControlName="name" placeholder="ej. Termo" />
+        <input matInput formControlName="name" />
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -31,17 +28,6 @@
           <mat-option value="lt">Litro</mat-option>
         </mat-select>
       </mat-form-field>
-
-      <!-- Sección -->
-<mat-form-field appearance="outline">
-  <mat-label>Sección</mat-label>
-  <mat-select formControlName="sectionId">
-    <mat-option *ngFor="let s of sections" [value]="s.id">
-      {{ s.name }}
-    </mat-option>
-  </mat-select>
-</mat-form-field>
-
 
       <mat-form-field appearance="outline">
         <mat-label>Costo</mat-label>
@@ -70,3 +56,4 @@
 
   </form>
 </mat-card>
+    

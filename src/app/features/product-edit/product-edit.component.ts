@@ -1,8 +1,8 @@
-// product-create.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, ReactiveFormsModule, Validators, FormGroup } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { finalize } from 'rxjs/operators';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -13,18 +13,16 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
-import { finalize } from 'rxjs/operators';
-
-import { ProductsApi, ProductCreateDto } from '../../core/api/products.api';
+import { ProductsApi, ProductUpdateDto } from '../../core/api/products.api';
 import { SectionsApi, SectionRow } from '../../core/api/sections.api';
 
 @Component({
-  selector: 'app-product-create',
+  selector: 'app-product-edit',
   standalone: true,
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    RouterLink,
+
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
@@ -34,23 +32,26 @@ import { SectionsApi, SectionRow } from '../../core/api/sections.api';
     MatProgressSpinnerModule,
     MatSnackBarModule
   ],
-  templateUrl: './product-create.component.html',
-  styleUrls: ['./product-create.component.scss']
+  templateUrl: './product-edit.component.html',
+  styleUrls: ['./product-edit.component.scss']
 })
-export class ProductCreateComponent implements OnInit {
+export class ProductEditComponent implements OnInit {
   saving = false;
   isAdmin = ((localStorage.getItem('role') || '').toLowerCase() === 'admin');
 
-  sections: SectionRow[] = [];
-
+  id = 0;
   form: FormGroup;
 
+  sections: SectionRow[] = [];
+  loadingSections = false;
+
   constructor(
+    private route: ActivatedRoute,
+    private router: Router,
     private fb: FormBuilder,
-    private productsApi: ProductsApi,
+    private api: ProductsApi,
     private sectionsApi: SectionsApi,
-    private snack: MatSnackBar,
-    private router: Router
+    private snack: MatSnackBar
   ) {
     this.form = this.fb.group({
       sku: ['', [Validators.required, Validators.minLength(2)]],
@@ -68,26 +69,49 @@ export class ProductCreateComponent implements OnInit {
       return;
     }
 
-    if (!this.form.value.sku) {
-      this.form.patchValue({ sku: this.generateSku() });
+    this.id = Number(this.route.snapshot.paramMap.get('id') || 0);
+    if (this.id <= 0) {
+      this.router.navigateByUrl('/products');
+      return;
     }
 
     this.loadSections();
+    this.loadProduct();
   }
 
   private loadSections(): void {
-    this.sectionsApi.list(false).subscribe({
-      next: (rows) => {
-        this.sections = (rows || []).filter(s => s.isActive);
+    this.loadingSections = true;
 
-        const def = this.sections[0]?.id ?? 0;
-        this.form.patchValue({ sectionId: def });
+    // list(false) según tu api: false = incluir inactivos? (ajústalo si es al revés)
+    this.sectionsApi.list(false)
+      .pipe(finalize(() => (this.loadingSections = false)))
+      .subscribe({
+        next: (rows) => {
+          this.sections = (rows || []).filter(s => s.isActive);
+        },
+        error: (e) => {
+          console.error(e);
+          this.sections = [];
+          this.snack.open('No se pudieron cargar secciones', 'Cerrar', { duration: 2500 });
+        }
+      });
+  }
+
+  private loadProduct(): void {
+    this.api.get(this.id).subscribe({
+      next: (p: any) => {
+        this.form.patchValue({
+          sku: p.sku,
+          name: p.name,
+          unit: p.unit,
+          cost: p.cost ?? 0,
+          price: p.price ?? 0,
+          sectionId: p.sectionId ?? 0,
+        });
       },
-      error: (e) => {
-        console.error(e);
-        this.sections = [];
-        this.form.patchValue({ sectionId: 0 });
-        this.snack.open('No se pudieron cargar secciones', 'Cerrar', { duration: 2500 });
+      error: () => {
+        this.snack.open('No se pudo cargar producto', 'Cerrar', { duration: 2500 });
+        this.router.navigateByUrl('/products');
       }
     });
   }
@@ -100,7 +124,7 @@ export class ProductCreateComponent implements OnInit {
 
     const v = this.form.value as any;
 
-    const dto: ProductCreateDto = {
+    const dto: ProductUpdateDto = {
       sku: (v.sku || '').trim(),
       name: (v.name || '').trim(),
       unit: (v.unit || 'pz').trim(),
@@ -110,29 +134,21 @@ export class ProductCreateComponent implements OnInit {
     };
 
     this.saving = true;
-    this.productsApi.create(dto)
+    this.api.update(this.id, dto)
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({
         next: () => {
-          this.snack.open('Producto creado', 'OK', { duration: 1800 });
+          this.snack.open('Producto actualizado', 'OK', { duration: 1500 });
           this.router.navigateByUrl('/products');
         },
-        error: (err) => {
-          console.error(err);
-          this.snack.open(err?.error || 'Error al crear producto', 'Cerrar', { duration: 2500 });
+        error: (e) => {
+          console.error(e);
+          this.snack.open(e?.error || 'Error al actualizar', 'Cerrar', { duration: 2500 });
         }
       });
   }
 
   cancel(): void {
     this.router.navigateByUrl('/products');
-  }
-
-  generateSkuPublic(): string {
-    return this.generateSku();
-  }
-
-  private generateSku(): string {
-    return String(Math.floor(10000000 + Math.random() * 90000000));
   }
 }

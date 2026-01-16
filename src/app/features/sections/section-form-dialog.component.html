@@ -1,0 +1,76 @@
+<div class="dialog">
+  <!-- Header -->
+  <div class="head">
+    <div class="head-left">
+      <div class="badge">
+        <mat-icon>{{ data.mode === 'create' ? 'add' : 'edit' }}</mat-icon>
+      </div>
+
+      <div>
+        <div class="title">
+          {{ data.mode === 'create' ? 'Nueva sección' : 'Editar sección' }}
+        </div>
+        <div class="subtitle">
+          Agrupa productos para reportes y filtros rápidos.
+        </div>
+      </div>
+    </div>
+
+    <button class="x" mat-icon-button (click)="cancel()" aria-label="Cerrar">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+    <mat-form-field appearance="outline" class="full">
+      <mat-label>Nombre de la sección</mat-label>
+      <input
+        matInput
+        [(ngModel)]="name"
+        maxlength="80"
+        placeholder="Ej. Abarrotes, Limpieza, Peligrosos"
+        (keyup.enter)="save()"
+      />
+      <mat-hint align="start">
+        Tip: usa nombres cortos y claros (2–80 caracteres).
+      </mat-hint>
+      <mat-hint align="end">{{ (name?.length || 0) }}/80</mat-hint>
+    </mat-form-field>
+
+    <div class="preview" *ngIf="name?.trim() as nm">
+      <div class="preview-label">Vista previa</div>
+      <div class="chip">
+        <mat-icon>category</mat-icon>
+        <span>{{ nm }}</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <mat-icon>info</mat-icon>
+      <span>
+        Nota: desactiva una sección si ya tiene productos, en vez de borrarla.
+      </span>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="foot">
+    <button mat-button (click)="cancel()">Cancelar</button>
+
+    <button
+      mat-raised-button
+      color="primary"
+      (click)="save()"
+      [disabled]="saving || name.trim().length < 2"
+    >
+      <mat-icon>{{ saving ? 'hourglass_top' : 'save' }}</mat-icon>
+      {{ data.mode === 'create' ? 'Crear' : 'Guardar' }}
+    </button>
+  </div>
+
+  <div class="saving" *ngIf="saving">
+    <span class="dot"></span>
+    <span>Guardando…</span>
+  </div>
+</div>

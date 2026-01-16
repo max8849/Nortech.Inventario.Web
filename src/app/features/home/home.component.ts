@@ -29,57 +29,63 @@ export class HomeComponent {
   constructor(private router: Router) {}
 
   private allTiles: Tile[] = [
+    // Staff + Admin
     {
       title: 'Inventario',
       subtitle: 'Productos, existencias y alertas',
       icon: 'inventory_2',
       route: '/stock',
-      roles: ['Admin', 'Staff']
+      roles: ['Admin', 'Staff'],
     },
     {
       title: 'Entradas / Salidas',
       subtitle: 'Registrar movimiento rápido',
       icon: 'swap_horiz',
       route: '/movements/movement-quick',
-      roles: ['Admin', 'Staff']
+      roles: ['Admin', 'Staff'],
     },
+    {
+      title: 'Órdenes de compra',
+      subtitle: 'Crear y recibir órdenes por sucursal',
+      icon: 'assignment',
+      route: '/purchase-orders',
+      roles: ['Admin', 'Staff'],
+    },
+
+    // Admin (catálogos)
+    {
+      title: 'Secciones',
+      subtitle: 'Categorías del inventario',
+      icon: 'category',
+      route: '/sections',
+      roles: ['Admin'],
+    },
+    {
+      title: 'Productos',
+      subtitle: 'Catálogo universal',
+      icon: 'inventory',
+      route: '/products',
+      roles: ['Admin'],
+    },
+
+    // Admin (administración)
     {
       title: 'Usuarios',
       subtitle: 'Accesos por sucursal y roles',
       icon: 'group',
       route: '/users',
-      roles: ['Admin']
+      roles: ['Admin'],
     },
-    {
-      title: 'Reportes',
-      subtitle: 'Existencias, bajo stock, kardex',
-      icon: 'bar_chart',
-      route: '/reports',
-      roles: ['Admin']
-    },
-    {
-      title: 'Informes',
-      subtitle: 'Exportar y compartir',
-      icon: 'description',
-      route: '/exports',
-      roles: ['Admin']
-    },
-  {
-    title: 'Cerrar sesión',
-    subtitle: 'Salir del portal',
-    icon: 'logout',
-    route: '/login',
-    roles: ['Admin', 'Staff'],
-    
-  },
-  {
-  title: 'Órdenes de compra',
-  subtitle: 'Crear y recibir órdenes por sucursal',
-  icon: 'assignment',
-  route: '/purchase-orders',
-  roles: ['Admin', 'Staff']
-},
 
+    // Logout (todos)
+    {
+      title: 'Cerrar sesión',
+      subtitle: 'Salir del portal',
+      icon: 'logout',
+      roles: ['Admin', 'Staff'],
+          route: '/login',
+
+    }
   ];
 
   // ✅ lo que se muestra depende del rol

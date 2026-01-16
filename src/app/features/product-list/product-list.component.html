@@ -1,0 +1,103 @@
+<mat-card class="wrap" appearance="outlined">
+  <div class="head">
+    <div>
+      <h2>Productos</h2>
+      <p class="muted">Catálogo universal. Solo Admin.</p>
+    </div>
+
+    <button mat-raised-button color="primary" type="button" (click)="goNew()">
+      <mat-icon>add</mat-icon>
+      Nuevo
+    </button>
+  </div>
+
+  <div class="filters">
+    <mat-form-field appearance="outline" class="q">
+      <mat-label>Buscar</mat-label>
+      <input matInput [formControl]="q" placeholder="SKU o nombre" />
+      <button mat-icon-button matSuffix type="button" (click)="q.setValue('')">
+        <mat-icon>close</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="section">
+      <mat-label>Sección</mat-label>
+      <mat-select [formControl]="sectionId">
+        <mat-option [value]="0">Todas</mat-option>
+        <mat-option *ngFor="let s of sections" [value]="s.id">
+          {{ s.name }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-slide-toggle [formControl]="showActiveOnly">
+      Solo activos
+    </mat-slide-toggle>
+  </div>
+
+  <div class="loading" *ngIf="loading">
+    <mat-spinner diameter="26"></mat-spinner>
+    <span>Cargando…</span>
+  </div>
+
+  <div class="table-wrap" *ngIf="!loading">
+<table mat-table [dataSource]="filtered" class="mat-elevation-z0">
+
+      <!-- SKU -->
+      <ng-container matColumnDef="sku">
+        <th mat-header-cell *matHeaderCellDef>SKU</th>
+        <td mat-cell *matCellDef="let r">{{ r.sku }}</td>
+      </ng-container>
+
+      <!-- Sección (OJO: el columnDef debe coincidir con displayedColumns) -->
+      <ng-container matColumnDef="sectionName">
+        <th mat-header-cell *matHeaderCellDef>Sección</th>
+        <td mat-cell *matCellDef="let r">{{ r.sectionName || '—' }}</td>
+      </ng-container>
+
+      <!-- Nombre -->
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Nombre</th>
+        <td mat-cell *matCellDef="let r">{{ r.name }}</td>
+      </ng-container>
+
+      <!-- Unidad -->
+      <ng-container matColumnDef="unit">
+        <th mat-header-cell *matHeaderCellDef>Unidad</th>
+        <td mat-cell *matCellDef="let r">{{ r.unit }}</td>
+      </ng-container>
+
+      <!-- Estado -->
+      <ng-container matColumnDef="isActive">
+        <th mat-header-cell *matHeaderCellDef>Estado</th>
+        <td mat-cell *matCellDef="let r">
+          <span class="pill" [class.off]="!r.isActive">
+            {{ r.isActive ? 'Activo' : 'Inactivo' }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Acciones -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="right">Acciones</th>
+        <td mat-cell *matCellDef="let r" class="right">
+          <button mat-icon-button type="button" (click)="edit(r)" aria-label="Editar">
+            <mat-icon>edit</mat-icon>
+          </button>
+
+          <button mat-icon-button type="button" (click)="toggleActive(r)" aria-label="Activar/Desactivar">
+            <mat-icon>{{ r.isActive ? 'toggle_off' : 'toggle_on' }}</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+    </table>
+
+<div class="empty" *ngIf="filtered.length === 0">
+  No hay productos con ese filtro.
+</div>
+
+  </div>
+</mat-card>

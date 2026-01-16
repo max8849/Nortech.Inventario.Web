@@ -14,6 +14,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 
 import { PurchaseOrdersApi } from '../../core/api/purchase-orders.api';
+import { API_BASE_URL } from '../../core/config/api.config';
 
 type PoItem = {
   id: number;            // itemId
@@ -26,6 +27,15 @@ type PoItem = {
   unitCost: number;
 };
 
+type EvidenceDto = {
+  id: number;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAtUtc: string;
+  url: string; // "/uploads/..."
+};
+
 type PoDetail = {
   id: number;
   status: any;           // number o string
@@ -36,6 +46,9 @@ type PoDetail = {
   createdAtUtc: string;
   receivedAtUtc?: string | null;
   items: PoItem[];
+
+  // ✅ OJO: en el HTML que te pasé lo uso como "evidence"
+  evidence?: EvidenceDto[];
 };
 
 type ReceiveItemDto = { itemId: number; quantityReceived: number };
@@ -62,6 +75,10 @@ type ReceiveItemDto = { itemId: number; quantityReceived: number };
 export class PurchaseOrderDetailsComponent implements OnInit {
   loading = false;
   saving = false;
+
+  // evidencia
+  evidenceUploading = false;
+  selectedFiles: File[] = [];
 
   isAdmin = ((localStorage.getItem('role') || '').toLowerCase() === 'admin');
 
@@ -106,6 +123,15 @@ export class PurchaseOrderDetailsComponent implements OnInit {
             unitCost: Number(x.unitCost ?? x.UnitCost ?? 0),
           })) as PoItem[];
 
+          const evidence = (data.evidence || data.Evidence || data.evidences || data.Evidences || []).map((e: any) => ({
+            id: e.id ?? e.Id,
+            fileName: e.fileName ?? e.FileName,
+            contentType: e.contentType ?? e.ContentType,
+            sizeBytes: Number(e.sizeBytes ?? e.SizeBytes ?? 0),
+            uploadedAtUtc: e.uploadedAtUtc ?? e.UploadedAtUtc,
+            url: this.apiFileUrl(e.url ?? e.Url)
+          })) as EvidenceDto[];
+
           this.po = {
             id: data.id ?? data.Id,
             status: data.status ?? data.Status,
@@ -115,7 +141,8 @@ export class PurchaseOrderDetailsComponent implements OnInit {
             receiveNote: data.receiveNote ?? data.ReceiveNote,
             createdAtUtc: data.createdAtUtc ?? data.CreatedAtUtc,
             receivedAtUtc: data.receivedAtUtc ?? data.ReceivedAtUtc,
-            items
+            items,
+            evidence
           };
 
           // preset: recibido = ordenado (rápido en móvil)
@@ -160,18 +187,13 @@ export class PurchaseOrderDetailsComponent implements OnInit {
     return String(this.po?.status ?? '');
   }
 
-  formatDateTime(iso?: string | null): string {
-    if (!iso) return '';
-    // para no depender de DatePipe y asegurar HH:mm:
-    // iso viene UTC normalmente. Si quieres local, lo parseamos.
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return String(iso).replace('T', ' ').slice(0, 16);
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mi = String(d.getMinutes()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+  formatDateTime(isoUtc?: string | null): string {
+    if (!isoUtc) return '';
+    const d = new Date(isoUtc); // UTC -> local
+    return new Intl.DateTimeFormat('es-MX', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(d);
   }
 
   // ===== UI =====
@@ -272,9 +294,97 @@ export class PurchaseOrderDetailsComponent implements OnInit {
   private clamp(n: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, n));
   }
-  print(): void {
-  if (!this.po) return;
-  this.router.navigateByUrl(`/purchase-orders/${this.po.id}/print`);
-}
 
+  print(): void {
+    if (!this.po) return;
+    this.router.navigateByUrl(`/purchase-orders/${this.po.id}/print`);
+  }
+
+  // =========================
+  // Evidencia
+  // =========================
+  onEvidenceSelected(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const files = Array.from(input.files || []);
+
+    // limita a 5 archivos
+    this.selectedFiles = files.slice(0, 5);
+
+    // limpia el input para poder seleccionar el mismo archivo otra vez
+    input.value = '';
+    if (this.selectedFiles.length > 0) {
+      // si quieres subir inmediato, descomenta:
+      // this.uploadEvidence();
+    }
+  }
+
+  uploadEvidence(): void {
+    if (!this.po) return;
+    if (this.selectedFiles.length === 0) {
+      this.snack.open('Selecciona al menos 1 archivo', 'Cerrar', { duration: 1800 });
+      return;
+    }
+
+    this.evidenceUploading = true;
+
+    this.api.uploadEvidence(this.po.id, this.selectedFiles)
+      .pipe(finalize(() => (this.evidenceUploading = false)))
+      .subscribe({
+        next: () => {
+          this.snack.open('Evidencia subida', 'OK', { duration: 1500 });
+          this.selectedFiles = [];
+          this.load();
+        },
+        error: (err) => {
+          console.error(err);
+          this.snack.open(err?.error || 'Error al subir evidencia', 'Cerrar', { duration: 2500 });
+        }
+      });
+  }
+
+  openEvidence(ev: EvidenceDto): void {
+    const url = ev?.url || '';
+    if (!url) return;
+    window.open(url, '_blank');
+  }
+
+  deleteEvidence(ev: EvidenceDto): void {
+    if (!this.isAdmin || !this.po) return;
+
+    this.saving = true;
+    this.api.deleteEvidence(this.po.id, ev.id)
+      .pipe(finalize(() => (this.saving = false)))
+      .subscribe({
+        next: () => {
+          this.snack.open('Evidencia eliminada', 'OK', { duration: 1500 });
+          this.load();
+        },
+        error: (err) => {
+          console.error(err);
+          this.snack.open(err?.error || 'No se pudo eliminar', 'Cerrar', { duration: 2500 });
+        }
+      });
+  }
+
+  isImage(fileName?: string | null): boolean {
+    const f = String(fileName || '').toLowerCase();
+    return f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.png') || f.endsWith('.webp') || f.endsWith('.gif');
+  }
+
+  formatBytes(bytes?: number | null): string {
+    const b = Number(bytes || 0);
+    if (!b) return '0 B';
+    const kb = b / 1024;
+    if (kb < 1024) return `${kb.toFixed(0)} KB`;
+    return `${(kb / 1024).toFixed(1)} MB`;
+  }
+
+  private apiFileUrl(u?: string | null): string {
+    if (!u) return '';
+    // u suele venir "/uploads/..."
+    if (u.startsWith('http')) return u;
+
+    // ✅ usa tu constant del front
+    return `${API_BASE_URL}${u}`;
+  }
 }

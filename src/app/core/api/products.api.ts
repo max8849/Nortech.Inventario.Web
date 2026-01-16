@@ -1,8 +1,19 @@
-import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
-import { Product } from '../models/product.model';
+
+export interface ProductRowDto {
+  id: number;
+  sku: string;
+  name: string;
+  unit: string;
+  cost: number;
+  price: number;
+  isActive: boolean;
+  sectionId: number;
+  sectionName: string;
+}
 
 export interface ProductCreateDto {
   sku: string;
@@ -10,37 +21,43 @@ export interface ProductCreateDto {
   unit: string;
   cost: number;
   price: number;
-  minStock: number;
-  branchId?: number; 
-  initialQty?: number;
-
+  sectionId: number;
 }
 
-export interface ProductUpdateDto extends ProductCreateDto {
-  isActive: boolean;
+export interface ProductUpdateDto {
+  sku: string;
+  name: string;
+  unit: string;
+  cost: number;
+  price: number;
+  sectionId: number;
 }
 
 @Injectable({ providedIn: 'root' })
 export class ProductsApi {
-  private http = inject(HttpClient);
   private base = `${API_BASE_URL}/api/products`;
 
-  get(q?: string, active?: boolean): Observable<Product[]> {
-    const params: any = {};
-    if (q) params.q = q;
-    if (active !== undefined) params.active = active;
-    return this.http.get<Product[]>(this.base, { params });
+  constructor(private http: HttpClient) {}
+
+  list(q: string = '', active: boolean = true): Observable<ProductRowDto[]> {
+    let params = new HttpParams().set('active', String(active));
+    if (q?.trim()) params = params.set('q', q.trim());
+    return this.http.get<ProductRowDto[]>(this.base, { params });
   }
 
-  getById(id: number): Observable<Product> {
-    return this.http.get<Product>(`${this.base}/${id}`);
+  get(id: number): Observable<ProductRowDto> {
+    return this.http.get<ProductRowDto>(`${this.base}/${id}`);
   }
 
-create(dto: ProductCreateDto) {
-  return this.http.post(`${this.base}`, dto);
-}
+  create(dto: ProductCreateDto): Observable<any> {
+    return this.http.post(this.base, dto);
+  }
 
-  update(id: number, dto: ProductUpdateDto) {
-    return this.http.put<{ id: number }>(`${this.base}/${id}`, dto);
+  update(id: number, dto: ProductUpdateDto): Observable<any> {
+    return this.http.put(`${this.base}/${id}`, dto);
+  }
+
+  setActive(id: number, isActive: boolean): Observable<any> {
+    return this.http.patch(`${this.base}/${id}/active`, { isActive });
   }
 }

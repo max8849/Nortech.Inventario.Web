@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+
 import { MatCardModule } from '@angular/material/card';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,15 +13,16 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
-import { Router, RouterLink } from '@angular/router';
-import { ProductsApi } from '../../core/api/products.api';
+
+import { firstValueFrom } from 'rxjs';
+
+import { ProductsApi, ProductRowDto } from '../../core/api/products.api';
 import { MovementsApi } from '../../core/api/movements.api';
-import { Product } from '../../core/models/product.model';
 import { MovementCreate, MovementType } from '../../core/models/movement.model';
 
 type SelectedItem = {
   checked: boolean;
-  type: MovementType;  
+  type: MovementType;
   qty: number;
 };
 
@@ -29,7 +32,8 @@ type SelectedItem = {
   imports: [
     CommonModule,
     FormsModule,
-    RouterLink,           
+    RouterLink,
+
     MatCardModule,
     MatCheckboxModule,
     MatButtonModule,
@@ -39,8 +43,7 @@ type SelectedItem = {
     MatButtonToggleModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
-    MatDividerModule,
-    
+    MatDividerModule
   ],
   templateUrl: './movement-quick.component.html',
   styleUrls: ['./movement-quick.component.scss']
@@ -52,8 +55,9 @@ export class MovementQuickComponent implements OnInit {
   q = '';
   note = '';
 
-  products: Product[] = [];
-  filtered: Product[] = [];
+  // ✅ ahora es catálogo universal
+  products: ProductRowDto[] = [];
+  filtered: ProductRowDto[] = [];
 
   // map por productId
   selected: Record<number, SelectedItem> = {};
@@ -71,9 +75,10 @@ export class MovementQuickComponent implements OnInit {
 
   loadProducts(): void {
     this.loading = true;
-    this.productsApi.get('', true).subscribe({
+
+    this.productsApi.list('', true).subscribe({
       next: (data) => {
-        this.products = data;
+        this.products = (data ?? []) as ProductRowDto[];
         this.applyFilter();
         this.loading = false;
       },
@@ -90,7 +95,8 @@ export class MovementQuickComponent implements OnInit {
     this.filtered = !term
       ? this.products
       : this.products.filter(p =>
-          p.sku.toLowerCase().includes(term) || p.name.toLowerCase().includes(term)
+          (p.sku || '').toLowerCase().includes(term) ||
+          (p.name || '').toLowerCase().includes(term)
         );
   }
 
@@ -98,21 +104,21 @@ export class MovementQuickComponent implements OnInit {
     return !!this.selected[id]?.checked;
   }
 
-  toggleProduct(p: Product, checked: boolean): void {
+  toggleProduct(p: ProductRowDto, checked: boolean): void {
     if (!this.selected[p.id]) {
-      this.selected[p.id] = { checked: false, type: 1, qty: 1 }; // default: Entrada, qty 1
+      this.selected[p.id] = { checked: false, type: 1 as MovementType, qty: 1 };
     }
+
     this.selected[p.id].checked = checked;
 
-    // si lo desmarcan, resetea qty a 1 (opcional)
     if (!checked) {
       this.selected[p.id].qty = 1;
-      this.selected[p.id].type = 1;
+      this.selected[p.id].type = 1 as MovementType;
     }
   }
 
   setType(productId: number, type: MovementType) {
-    if (!this.selected[productId]) this.selected[productId] = { checked: true, type: 1, qty: 1 };
+    if (!this.selected[productId]) this.selected[productId] = { checked: true, type: 1 as MovementType, qty: 1 };
     this.selected[productId].type = type;
   }
 
@@ -146,7 +152,7 @@ export class MovementQuickComponent implements OnInit {
       return;
     }
 
-    // agrupa por tipo para mantener backend tal como está (1 movimiento = 1 tipo)
+    // agrupa por tipo: 1 movimiento = 1 tipo (como tu backend)
     const groupIn = picked.filter(x => x.type === 1);
     const groupOut = picked.filter(x => x.type === 2);
 
@@ -154,7 +160,6 @@ export class MovementQuickComponent implements OnInit {
 
     try {
       const note = this.note?.trim() || null;
-
       const calls: Promise<any>[] = [];
 
       if (groupIn.length > 0) {
@@ -164,10 +169,10 @@ export class MovementQuickComponent implements OnInit {
           items: groupIn.map(x => ({
             productId: x.productId,
             quantity: x.qty,
-            unitCost: 0 // por ahora
+            unitCost: 0
           }))
         };
-        calls.push(this.movementsApi.create(dtoIn).toPromise());
+        calls.push(firstValueFrom(this.movementsApi.create(dtoIn)));
       }
 
       if (groupOut.length > 0) {
@@ -180,7 +185,7 @@ export class MovementQuickComponent implements OnInit {
             unitCost: null
           }))
         };
-        calls.push(this.movementsApi.create(dtoOut).toPromise());
+        calls.push(firstValueFrom(this.movementsApi.create(dtoOut)));
       }
 
       await Promise.all(calls);
