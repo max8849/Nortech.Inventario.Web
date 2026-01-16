@@ -1,0 +1,111 @@
+<mat-card appearance="outlined" class="wrap">
+  <div class="top">
+    <div>
+      <h2>Órdenes de compra</h2>
+      <p class="muted">
+        {{ isAdmin ? 'Crea y asigna órdenes a sucursales.' : 'Órdenes asignadas a tu sucursal.' }}
+      </p>
+    </div>
+
+    <div class="actions">
+      <button mat-raised-button type="button" (click)="load()" [disabled]="loading">
+        <mat-icon>refresh</mat-icon>
+        Recargar
+      </button>
+
+<button
+  *ngIf="isAdmin"
+  mat-raised-button
+  color="primary"
+  type="button"
+  [disabled]="loading"
+  (click)="goCreate()"
+>
+  <mat-icon>add</mat-icon>
+  Nueva orden
+</button>
+
+
+
+    </div>
+  </div>
+
+  <!-- Filtros admin -->
+  <div class="filters" *ngIf="isAdmin">
+    <mat-form-field appearance="outline" style="width: 220px;">
+      <mat-label>Sucursal</mat-label>
+      <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="load()">
+        <mat-option [value]="0">Todas</mat-option>
+        <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" style="width: 220px;">
+      <mat-label>Estatus</mat-label>
+      <mat-select [(ngModel)]="selectedStatus" (selectionChange)="load()">
+        <mat-option [value]="0">Todos</mat-option>
+        <mat-option [value]="1">Pendiente</mat-option>
+        <mat-option [value]="2">Recibida</mat-option>
+        <mat-option [value]="3">Cancelada</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <div *ngIf="loading" class="loading">
+      <mat-spinner diameter="22"></mat-spinner>
+      <span>Cargando...</span>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <table mat-table [dataSource]="rows" class="mat-elevation-z2" *ngIf="!loading">
+    <ng-container matColumnDef="id">
+      <th mat-header-cell *matHeaderCellDef>#</th>
+      <td mat-cell *matCellDef="let r">{{ r.id }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="branch" *ngIf="isAdmin">
+      <th mat-header-cell *matHeaderCellDef>Sucursal</th>
+      <td mat-cell *matCellDef="let r">{{ r.branchName || r.branchId }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="status">
+      <th mat-header-cell *matHeaderCellDef>Estatus</th>
+      <td mat-cell *matCellDef="let r">
+        <span class="pill">{{ statusLabel(r.status) }}</span>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="created">
+      <th mat-header-cell *matHeaderCellDef>Creada</th>
+      <td mat-cell *matCellDef="let r">{{ shortDate(r.createdAtUtc) }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="items">
+      <th mat-header-cell *matHeaderCellDef>Items</th>
+      <td mat-cell *matCellDef="let r">{{ r.itemsCount ?? '-' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="note">
+      <th mat-header-cell *matHeaderCellDef>Nota</th>
+      <td mat-cell *matCellDef="let r">{{ r.note || '' }}</td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+
+    <ng-container matColumnDef="actions">
+  <th mat-header-cell *matHeaderCellDef> </th>
+  <td mat-cell *matCellDef="let r">
+    <button mat-stroked-button type="button" (click)="open(r.id)">
+      <mat-icon>visibility</mat-icon>
+      Ver
+    </button>
+  </td>
+</ng-container>
+
+  </table>
+
+  <div class="empty" *ngIf="!loading && rows.length === 0">
+    No hay órdenes.
+  </div>
+</mat-card>

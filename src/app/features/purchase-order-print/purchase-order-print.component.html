@@ -1,0 +1,72 @@
+<div class="screenOnly top">
+  <button mat-stroked-button type="button" (click)="back()">
+    <mat-icon>arrow_back</mat-icon>
+    Volver al detalle
+  </button>
+
+  <button mat-raised-button color="primary" type="button" (click)="print()">
+    <mat-icon>print</mat-icon>
+    Imprimir
+  </button>
+</div>
+
+<div class="loading" *ngIf="loading">
+  <mat-spinner diameter="26"></mat-spinner>
+  <span>Cargando...</span>
+</div>
+
+<div class="sheet" *ngIf="!loading && po">
+  <div class="header">
+    <div>
+      <div class="h1">Orden de compra (OC #{{ po.id }})</div>
+      <div class="meta">
+        <div><b>Sucursal destino:</b> {{ po.branchName }}</div>
+        <div><b>Creada:</b> {{ dt(po.createdAtUtc) }}</div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="box">
+        <div class="lbl">Chofer</div>
+        <div class="line"></div>
+      </div>
+      <div class="box">
+        <div class="lbl">Firma</div>
+        <div class="line"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" *ngIf="po.note">
+    <b>Nota:</b> {{ po.note }}
+  </div>
+
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th class="c1">#</th>
+        <th class="c2">SKU</th>
+        <th>Producto</th>
+        <th class="c3">Unidad</th>
+        <th class="c4">Cant.</th>
+        <th class="c5">✔</th>
+        <th class="c6">Observación</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let it of po.items; index as i">
+        <td class="c1">{{ i + 1 }}</td>
+        <td class="c2">{{ it.sku }}</td>
+        <td>{{ it.name }}</td>
+        <td class="c3">{{ it.unit }}</td>
+        <td class="c4">{{ it.quantityOrdered }}</td>
+        <td class="c5"></td>
+        <td class="c6"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div class="small">Impreso: {{ dt(printedAt) }}</div>
+  </div>
+</div>

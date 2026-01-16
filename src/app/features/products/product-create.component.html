@@ -1,0 +1,96 @@
+<mat-card class="wrap" appearance="outlined">
+  <form [formGroup]="form" (ngSubmit)="save()">
+
+    <div class="head">
+      <div>
+        <h2>Agregar producto</h2>
+        <p class="muted">
+          {{ isAdmin ? 'Selecciona la sucursal destino.' : 'Se agregará a tu sucursal.' }}
+        </p>
+      </div>
+
+      <button mat-stroked-button type="button" (click)="cancel()">
+        <mat-icon>arrow_back</mat-icon>
+        Volver
+      </button>
+    </div>
+
+    <div class="grid">
+    <mat-form-field appearance="outline">
+    <mat-label>SKU</mat-label>
+    <input matInput formControlName="sku" placeholder="ej. 4555466" />
+
+    <button mat-icon-button matSuffix type="button" (click)="form.patchValue({ sku: generateSkuPublic() })">
+        <mat-icon>autorenew</mat-icon>
+    </button>
+    </mat-form-field>
+
+
+      <mat-form-field appearance="outline">
+        <mat-label>Nombre</mat-label>
+        <input matInput formControlName="name" placeholder="ej. Termo" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Unidad</mat-label>
+        <mat-select formControlName="unit">
+          <mat-option value="pz">Pieza</mat-option>
+          <mat-option value="caja">Caja</mat-option>
+          <mat-option value="kg">Kg</mat-option>
+          <mat-option value="lt">Litro</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Stock mínimo (sucursal)</mat-label>
+        <input matInput type="number" formControlName="minStock" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Costo</mat-label>
+        <input matInput type="number" formControlName="cost" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Precio</mat-label>
+        <input matInput type="number" formControlName="price" />
+      </mat-form-field>
+
+      <!-- ✅ Admin: selector de sucursal -->
+      <mat-form-field *ngIf="isAdmin" appearance="outline">
+        <mat-label>Sucursal</mat-label>
+        <mat-select formControlName="branchId">
+          <mat-option *ngFor="let b of branches" [value]="b.id">
+            {{ b.name }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Cantidad inicial</mat-label>
+        <input matInput type="number" formControlName="initialQty" />
+      </mat-form-field>
+
+    </div>
+
+    <div class="actions">
+      <button mat-button type="button" (click)="cancel()">Cancelar</button>
+
+      <button
+        mat-raised-button
+        color="primary"
+        type="submit"
+        [disabled]="saving || form.invalid"
+      >
+        <mat-icon>save</mat-icon>
+        Guardar
+      </button>
+
+      <div class="saving" *ngIf="saving">
+        <mat-spinner diameter="18"></mat-spinner>
+        Guardando...
+      </div>
+    </div>
+
+  </form>
+</mat-card>

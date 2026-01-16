@@ -1,0 +1,91 @@
+.page {
+  padding: 12px;
+}
+
+.title {
+  margin: 8px 4px 2px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.hint {
+  margin: 0 4px 16px;
+  opacity: 0.75;
+}
+
+.grid {
+  display: grid;
+  gap: 14px;
+
+  /* Mobile first */
+  grid-template-columns: 1fr;
+}
+
+/* Tablets: 2 columnas */
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Desktop: 3 columnas */
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.tile {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.card {
+  border-radius: 18px;
+  min-height: 140px;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.tile:hover .card {
+  transform: translateY(-2px);
+}
+
+.card-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+}
+
+.icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+mat-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.card-subtitle {
+  opacity: 0.75;
+  font-size: 13px;
+  line-height: 1.25rem;
+}
+
+.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}

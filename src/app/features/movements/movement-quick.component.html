@@ -1,0 +1,83 @@
+<div class="page">
+  <div class="top">
+    <div>
+      <h1>Registrar movimiento</h1>
+      <p class="muted">Marca productos, define entrada/salida y cantidad.</p>
+    </div>
+
+    <button mat-stroked-button routerLink="/stock">
+     Ver inventario
+    </button>
+  </div>
+
+  <mat-card class="card" appearance="outlined">
+    <div class="controls">
+      <mat-form-field appearance="outline" class="search">
+        <mat-label>Buscar</mat-label>
+        <input matInput [(ngModel)]="q" (input)="applyFilter()" placeholder="SKU o nombre" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="note">
+        <mat-label>Notas (opcional)</mat-label>
+        <input matInput [(ngModel)]="note" placeholder="Ej. recepción proveedor / salida a producción" />
+      </mat-form-field>
+    </div>
+
+    <div class="summary">
+      <span class="muted">Seleccionados: <b>{{ getSelectedCount() }}</b></span>
+
+      <button mat-raised-button color="primary" (click)="save()" [disabled]="saving || loading">
+        <mat-icon>save</mat-icon>
+        Guardar
+      </button>
+    </div>
+
+    <mat-divider></mat-divider>
+
+    <div class="loading" *ngIf="loading">
+      <mat-spinner diameter="28"></mat-spinner>
+      <span>Cargando productos...</span>
+    </div>
+
+    <div *ngIf="!loading" class="list">
+      <div class="row" *ngFor="let p of filtered">
+        <div class="row-head">
+          <mat-checkbox
+            [checked]="isChecked(p.id)"
+            (change)="toggleProduct(p, $event.checked)"
+          >
+            <span class="sku">{{ p.sku }}</span>
+            <span class="name">{{ p.name }}</span>
+          </mat-checkbox>
+        </div>
+
+        <div class="row-body" *ngIf="isChecked(p.id)">
+          <mat-button-toggle-group
+            [value]="selected[p.id].type"
+            (change)="setType(p.id, $event.value)"
+            class="toggles"
+          >
+            <mat-button-toggle [value]="1">Entrada</mat-button-toggle>
+            <mat-button-toggle [value]="2">Salida</mat-button-toggle>
+          </mat-button-toggle-group>
+
+          <div class="qty">
+            <button mat-stroked-button (click)="dec(p.id)">
+              <mat-icon>remove</mat-icon>
+            </button>
+
+            <div class="qty-value">{{ selected[p.id].qty }}</div>
+
+            <button mat-stroked-button (click)="inc(p.id)">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty" *ngIf="filtered.length === 0">
+        No hay productos.
+      </div>
+    </div>
+  </mat-card>
+</div>

@@ -1,0 +1,8 @@
+.wrap { padding: 14px; }
+.top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap: wrap; }
+.muted { margin: 4px 0 0; opacity: .7; }
+.actions { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
+.filters { margin-top: 10px; display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
+.loading { display:flex; gap:10px; align-items:center; opacity: .85; }
+.empty { padding: 14px 2px; opacity: .7; }
+.pill { padding: 4px 10px; border-radius: 999px; background: rgba(0,0,0,.06); }

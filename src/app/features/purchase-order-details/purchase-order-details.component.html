@@ -1,0 +1,180 @@
+<mat-card class="wrap" appearance="outlined">
+  <div class="topbar">
+    <div class="titleblock">
+      <div class="titleline">
+        <h2>OC #{{ po?.id }}</h2>
+
+        <span
+          class="pill"
+          [class.pending]="isPending()"
+          [class.received]="isReceived()"
+          [class.cancelled]="isCancelled()"
+        >
+          {{ statusLabel() }}
+        </span>
+      </div>
+
+      <div class="meta">
+        <span><b>Sucursal:</b> {{ po?.branchName }}</span>
+        <span><b>Creada:</b> {{ formatDateTime(po?.createdAtUtc) }}</span>
+        <span *ngIf="po?.receivedAtUtc"><b>Recibida:</b> {{ formatDateTime(po?.receivedAtUtc) }}</span>
+      </div>
+    </div>
+
+    <div class="actionsTop">
+      <button mat-stroked-button type="button" (click)="back()">
+        <mat-icon>arrow_back</mat-icon>
+        Volver
+      </button>
+
+      <button *ngIf="isAdmin" mat-stroked-button type="button" (click)="print()">
+        <mat-icon>print</mat-icon>
+        Imprimir
+    </button>
+
+
+      <button
+        *ngIf="isPending()"
+        mat-stroked-button
+        color="primary"
+        type="button"
+        (click)="toggleReceiveMode()"
+      >
+        <mat-icon>{{ receiveMode ? 'visibility' : 'fact_check' }}</mat-icon>
+        {{ receiveMode ? 'Ver' : 'Recibir' }}
+      </button>
+
+      <button
+        *ngIf="isAdmin && isPending()"
+        mat-stroked-button
+        color="warn"
+        type="button"
+        [disabled]="saving"
+        (click)="cancel()"
+      >
+        <mat-icon>cancel</mat-icon>
+        Cancelar
+      </button>
+    </div>
+  </div>
+
+  <mat-divider></mat-divider>
+
+  <div class="note" *ngIf="po?.note">
+    <mat-icon>note</mat-icon>
+    <div>
+      <div class="noteTitle">Nota</div>
+      <div class="noteText">{{ po?.note }}</div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" *ngIf="loading">
+    <mat-spinner diameter="26"></mat-spinner>
+    <span>Cargando...</span>
+  </div>
+
+  <!-- BODY -->
+  <ng-container *ngIf="!loading && po">
+    <!-- Acciones rápidas modo recibir -->
+    <div class="receiveTools" *ngIf="receiveMode && isPending()">
+      <button mat-stroked-button type="button" (click)="setAllReceivedToOrdered()">
+        <mat-icon>done_all</mat-icon>
+        Todo = ordenado
+      </button>
+
+      <button mat-stroked-button type="button" (click)="setAllReceivedToZero()">
+        <mat-icon>clear_all</mat-icon>
+        Todo = 0
+      </button>
+
+      <mat-form-field appearance="outline" class="receiveNote">
+        <mat-label>Nota de recepción (opcional)</mat-label>
+        <input
+          matInput
+          [(ngModel)]="receiveNote"
+          placeholder="Ej: faltó jabón Ariel, llegó roto..."
+        />
+      </mat-form-field>
+
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        class="receiveBtn"
+        [disabled]="!canReceive()"
+        (click)="receive()"
+      >
+        <mat-icon>check_circle</mat-icon>
+        Marcar como recibida
+      </button>
+
+      <div class="saving" *ngIf="saving">
+        <mat-spinner diameter="18"></mat-spinner>
+        Guardando...
+      </div>
+    </div>
+
+    <!-- LISTA -->
+    <div class="list">
+      <mat-card class="itemCard" appearance="outlined" *ngFor="let it of po.items">
+        <div class="itemHead">
+          <div class="itemText">
+            <div class="pname">{{ it.name }}</div>
+            <div class="psub">
+              <span class="muted">SKU:</span> {{ it.sku }}
+              <span class="dot">•</span>
+              <span class="muted">Unidad:</span> {{ it.unit }}
+            </div>
+          </div>
+
+          <div class="qtyInfo" *ngIf="!receiveMode">
+            <div class="small muted">Ordenado</div>
+            <div class="big">{{ it.quantityOrdered }}</div>
+
+            <div class="small muted" *ngIf="!isPending()">
+              Recibido: <b>{{ it.quantityReceived }}</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODO RECIBIR -->
+        <div class="receiveRow" *ngIf="receiveMode && isPending()">
+          <div class="ordered">
+            <div class="small muted">Ordenado</div>
+            <div class="big">{{ it.quantityOrdered }}</div>
+          </div>
+
+          <div class="counter">
+            <button mat-stroked-button type="button" class="counterBtn" (click)="dec(it.id)">
+              <mat-icon>remove</mat-icon>
+            </button>
+
+            <input
+              class="counterInput"
+              type="number"
+              [value]="receivedMap[it.id] ?? 0"
+              (input)="setReceived(it.id, $any($event.target).value)"
+              inputmode="numeric"
+              min="0"
+            />
+
+            <button mat-stroked-button type="button" class="counterBtn" (click)="inc(it.id)">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+
+          <div class="quick">
+            <button mat-button type="button" (click)="inc(it.id, 5)">+5</button>
+            <button mat-button type="button" (click)="inc(it.id, 10)">+10</button>
+            <button mat-button type="button" (click)="setReceived(it.id, it.quantityOrdered)">=Orden</button>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+
+    <div class="empty" *ngIf="po.items.length === 0">
+      No hay productos en esta orden.
+    </div>
+  </ng-container>
+</mat-card>

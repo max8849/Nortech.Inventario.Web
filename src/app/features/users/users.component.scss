@@ -1,0 +1,39 @@
+.page { padding: 12px; }
+.top {
+  display:flex;
+  justify-content: space-between;
+  align-items:flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+h1 { margin:0; font-size: 22px; font-weight: 900; }
+.muted { margin: 4px 0 0; opacity: .75; }
+
+.card { border-radius: 18px; }
+
+.toolbar {
+  display:flex;
+  gap: 12px;
+  padding: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.search { flex: 1; min-width: 240px; }
+
+.loading {
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  padding: 12px;
+}
+
+.table-wrap { overflow:auto; }
+.table { width: 100%; }
+
+.actions { text-align: right; }
+
+.empty { padding: 16px; }
+
+.chip-admin { font-weight: 700; }
+.chip-staff { opacity: .85; }

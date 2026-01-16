@@ -1,0 +1,138 @@
+<mat-card class="wrap" appearance="outlined">
+  <div class="head">
+    <div>
+      <h2>Nueva orden de compra</h2>
+      <p class="muted">
+        {{ isAdmin ? 'Elige la sucursal destino y selecciona productos.' : 'Se enviará a tu sucursal.' }}
+      </p>
+    </div>
+
+    <button mat-stroked-button type="button" (click)="back()">
+      <mat-icon>arrow_back</mat-icon>
+      Volver a órdenes
+    </button>
+  </div>
+
+  <div class="toolbar">
+    <mat-form-field *ngIf="isAdmin" appearance="outline" style="width: 280px; max-width: 100%;">
+      <mat-label>Sucursal destino</mat-label>
+      <mat-select [(ngModel)]="branchId">
+        <mat-option *ngFor="let b of branches" [value]="b.id">
+          {{ b.name }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" style="width: 420px; max-width: 100%;">
+      <mat-label>Buscar producto</mat-label>
+      <input matInput [(ngModel)]="q" (input)="applyFilter()" placeholder="SKU o nombre" />
+    </mat-form-field>
+
+    <button mat-raised-button type="button" (click)="loadProducts()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Recargar productos
+    </button>
+
+    <div *ngIf="loading" class="loading">
+      <mat-spinner diameter="18"></mat-spinner>
+      Cargando...
+    </div>
+  </div>
+
+  <mat-divider></mat-divider>
+
+  <div class="two">
+    <!-- Lista productos -->
+    <div class="pane">
+      <div class="pane-title">Productos</div>
+
+      <div class="list">
+        <div class="row" *ngFor="let p of filtered">
+          <div class="meta">
+            <div class="name">{{ p.name }}</div>
+            <div class="sub">{{ p.sku }} · {{ p.unit }}</div>
+          </div>
+
+          <button
+            mat-stroked-button
+            color="primary"
+            type="button"
+            (click)="add(p)"
+            [disabled]="isPicked(p.id)"
+          >
+            <mat-icon>add</mat-icon>
+            Agregar
+          </button>
+        </div>
+
+        <div class="empty" *ngIf="!loading && filtered.length === 0">
+          No hay productos.
+        </div>
+      </div>
+    </div>
+
+    <!-- Seleccionados -->
+    <div class="pane">
+      <div class="pane-title">Seleccionados ({{ items.length }})</div>
+
+      <div class="list">
+        <div class="row" *ngFor="let it of items">
+          <div class="meta">
+            <div class="name">{{ it.name }}</div>
+            <div class="sub">{{ it.sku }} · {{ it.unit }}</div>
+          </div>
+
+          <div class="qty">
+            <button mat-icon-button type="button" (click)="dec(it.productId)">
+              <mat-icon>remove</mat-icon>
+            </button>
+
+            <input
+              class="qty-input"
+              type="number"
+              min="1"
+              [(ngModel)]="it.quantityOrdered"
+            />
+
+            <button mat-icon-button type="button" (click)="inc(it.productId)">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+
+          <button mat-icon-button type="button" (click)="remove(it.productId)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+
+        <div class="empty" *ngIf="items.length === 0">
+          Aún no agregas productos.
+        </div>
+      </div>
+
+      <mat-form-field appearance="outline" style="width: 100%; margin-top: 10px;">
+        <mat-label>Nota para la sucursal (opcional)</mat-label>
+        <textarea matInput rows="3" [(ngModel)]="note"></textarea>
+      </mat-form-field>
+
+      <div class="actions">
+        <button mat-button type="button" (click)="back()">Cancelar</button>
+
+        <button
+          mat-raised-button
+          color="primary"
+          type="button"
+          (click)="save()"
+          [disabled]="!canSave()"
+        >
+          <mat-icon>save</mat-icon>
+          Guardar orden
+        </button>
+
+        <div class="saving" *ngIf="saving">
+          <mat-spinner diameter="18"></mat-spinner>
+          Guardando...
+        </div>
+      </div>
+    </div>
+  </div>
+</mat-card>

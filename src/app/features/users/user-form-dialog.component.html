@@ -1,0 +1,49 @@
+<div class="wrap">
+  <h2>Nuevo usuario</h2>
+  <p class="muted">Crea un acceso para el personal.</p>
+
+  <div class="form">
+    <mat-form-field appearance="outline">
+      <mat-label>Usuario</mat-label>
+      <input matInput [(ngModel)]="model.username" placeholder="ej. caja1" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Nombre</mat-label>
+      <input matInput [(ngModel)]="model.fullName" placeholder="ej. Juan Pérez" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Rol</mat-label>
+      <mat-select [(ngModel)]="model.role">
+        <mat-option value="Admin">Admin</mat-option>
+        <mat-option value="Staff">Staff</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+    <mat-label>Sucursal</mat-label>
+    <mat-select [(ngModel)]="model.branchId">
+        <mat-option *ngFor="let b of branches" [value]="b.id">
+        {{ b.name }}
+        </mat-option>
+    </mat-select>
+    </mat-form-field>
+
+
+    <mat-form-field appearance="outline">
+      <mat-label>Contraseña</mat-label>
+      <input matInput [(ngModel)]="model.password" type="password" placeholder="mínimo 6" />
+    </mat-form-field>
+  </div>
+
+  <div class="actions">
+    <button mat-button (click)="cancel()">Cancelar</button>
+    <button mat-raised-button color="primary" (click)="save()" [disabled]="saving">
+      <mat-icon>save</mat-icon>
+      Guardar
+    </button>
+  </div>
+
+  <div class="muted" *ngIf="saving" style="margin-top:10px;">Guardando...</div>
+</div>

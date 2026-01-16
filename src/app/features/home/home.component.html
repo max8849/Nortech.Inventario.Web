@@ -1,0 +1,31 @@
+<div class="page">
+  <div class="topbar">
+    <div>
+      <h1 class="title">Panel</h1>
+      <p class="hint">Selecciona un módulo</p>
+    </div>
+  </div>
+
+  <div class="grid">
+<a
+  class="tile"
+  *ngFor="let t of tiles"
+  href=""
+  (click)="open(t, $event)"
+>
+  <mat-card class="card" appearance="outlined">
+    <div class="card-inner">
+      <div class="icon">
+        <mat-icon>{{ t.icon }}</mat-icon>
+      </div>
+
+      <div class="text">
+        <div class="card-title">{{ t.title }}</div>
+        <div class="card-subtitle">{{ t.subtitle }}</div>
+      </div>
+    </div>
+  </mat-card>
+</a>
+
+  </div>
+</div>
