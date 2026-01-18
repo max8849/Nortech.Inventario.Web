@@ -21,14 +21,25 @@
       </mat-select>
     </mat-form-field>
 
-    <mat-form-field appearance="outline">
-    <mat-label>Sucursal</mat-label>
-    <mat-select [(ngModel)]="model.branchId">
-        <mat-option *ngFor="let b of branches" [value]="b.id">
-        {{ b.name }}
-        </mat-option>
-    </mat-select>
-    </mat-form-field>
+ <mat-form-field appearance="outline">
+  <mat-label>Sucursal principal</mat-label>
+  <mat-select [(ngModel)]="model.branchId" (selectionChange)="syncBranchIdsFromMain()">
+    <mat-option *ngFor="let b of branches" [value]="b.id">
+      {{ b.name }}
+    </mat-option>
+  </mat-select>
+</mat-form-field>
+
+<mat-form-field appearance="outline">
+  <mat-label>Sucursales con acceso</mat-label>
+  <mat-select multiple [(ngModel)]="model.branchIds">
+    <mat-option *ngFor="let b of branches" [value]="b.id">
+      {{ b.name }}
+    </mat-option>
+  </mat-select>
+  <mat-hint>El usuario podrá ver/operar en estas sucursales.</mat-hint>
+</mat-form-field>
+
 
 
     <mat-form-field appearance="outline">

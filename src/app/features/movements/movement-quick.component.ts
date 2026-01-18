@@ -13,12 +13,14 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatSelectModule } from '@angular/material/select';
 
 import { firstValueFrom } from 'rxjs';
 
 import { ProductsApi, ProductRowDto } from '../../core/api/products.api';
 import { MovementsApi } from '../../core/api/movements.api';
 import { MovementCreate, MovementType } from '../../core/models/movement.model';
+import { SessionService, BranchLite } from '../../core/session/session.service';
 
 type SelectedItem = {
   checked: boolean;
@@ -43,7 +45,8 @@ type SelectedItem = {
     MatButtonToggleModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
-    MatDividerModule
+    MatDividerModule,
+    MatSelectModule
   ],
   templateUrl: './movement-quick.component.html',
   styleUrls: ['./movement-quick.component.scss']
@@ -55,7 +58,11 @@ export class MovementQuickComponent implements OnInit {
   q = '';
   note = '';
 
-  // ✅ ahora es catálogo universal
+  // sucursales disponibles según sesión
+  branches: BranchLite[] = [];
+  branchId = 0;
+
+  // catálogo (idealmente filtrado por sucursal)
   products: ProductRowDto[] = [];
   filtered: ProductRowDto[] = [];
 
@@ -66,17 +73,47 @@ export class MovementQuickComponent implements OnInit {
     private productsApi: ProductsApi,
     private movementsApi: MovementsApi,
     private snack: MatSnackBar,
-    private router: Router
+    private router: Router,
+    private session: SessionService
   ) {}
 
+  // helpers para el HTML
+  get isAdmin(): boolean {
+    return this.session.isAdmin();
+  }
+
+  get canChooseBranch(): boolean {
+    return this.session.canChooseBranch();
+  }
+
   ngOnInit(): void {
+    this.branches = this.session.branches();
+    this.branchId = this.session.activeBranchId(); // Admin puede ser 0 ("Todas")
+    this.loadProducts();
+  }
+
+  onBranchChange(id: number): void {
+    this.session.setActiveBranchId(id);
+
+    // reset selección al cambiar sucursal (evitar mezclar)
+    this.selected = {};
+    this.note = '';
+    this.q = '';
+
+    this.branchId = this.session.activeBranchId();
     this.loadProducts();
   }
 
   loadProducts(): void {
     this.loading = true;
 
-    this.productsApi.list('', true).subscribe({
+    // Staff => siempre >0
+    // Admin => null cuando está en "Todas", >0 cuando elige una sucursal
+    const branchParam = this.session.branchIdParam();
+
+    // ⚠️ Ajusta tu ProductsApi.list para aceptar branchId (number | null)
+    // Ej: list(q: string, includeInactive: boolean, branchId: number | null)
+    this.productsApi.list('', true, branchParam).subscribe({
       next: (data) => {
         this.products = (data ?? []) as ProductRowDto[];
         this.applyFilter();
@@ -117,18 +154,20 @@ export class MovementQuickComponent implements OnInit {
     }
   }
 
-  setType(productId: number, type: MovementType) {
-    if (!this.selected[productId]) this.selected[productId] = { checked: true, type: 1 as MovementType, qty: 1 };
+  setType(productId: number, type: MovementType): void {
+    if (!this.selected[productId]) {
+      this.selected[productId] = { checked: true, type: 1 as MovementType, qty: 1 };
+    }
     this.selected[productId].type = type;
   }
 
-  inc(productId: number) {
+  inc(productId: number): void {
     const it = this.selected[productId];
     if (!it) return;
     it.qty = Math.min(999999, (it.qty || 0) + 1);
   }
 
-  dec(productId: number) {
+  dec(productId: number): void {
     const it = this.selected[productId];
     if (!it) return;
     it.qty = Math.max(1, (it.qty || 1) - 1);
@@ -139,6 +178,13 @@ export class MovementQuickComponent implements OnInit {
   }
 
   async save(): Promise<void> {
+    // ✅ Para registrar movimiento NO permitas "Todas"
+    const branchToCreate = this.session.activeBranchId();
+    if (branchToCreate <= 0) {
+      this.snack.open('Selecciona una sucursal para registrar el movimiento', 'Cerrar', { duration: 2300 });
+      return;
+    }
+
     const picked = this.products
       .filter(p => this.selected[p.id]?.checked)
       .map(p => ({
@@ -152,7 +198,7 @@ export class MovementQuickComponent implements OnInit {
       return;
     }
 
-    // agrupa por tipo: 1 movimiento = 1 tipo (como tu backend)
+    // 1 movimiento = 1 tipo (como tu backend)
     const groupIn = picked.filter(x => x.type === 1);
     const groupOut = picked.filter(x => x.type === 2);
 
@@ -164,6 +210,7 @@ export class MovementQuickComponent implements OnInit {
 
       if (groupIn.length > 0) {
         const dtoIn: MovementCreate = {
+          branchId: branchToCreate,
           type: 1,
           note,
           items: groupIn.map(x => ({
@@ -177,6 +224,7 @@ export class MovementQuickComponent implements OnInit {
 
       if (groupOut.length > 0) {
         const dtoOut: MovementCreate = {
+          branchId: branchToCreate,
           type: 2,
           note,
           items: groupOut.map(x => ({

@@ -10,7 +10,16 @@ export interface UserRow {
   username: string;
   fullName: string;
   role: UserRole;
+
+  // ✅ ahora viene del backend
+  branchId: number;
+  branchName: string;
+
+  // ✅ multi-sucursal
+  branchIds: number[];
+
   isActive: boolean;
+  createdAtUtc?: string;
 }
 
 export interface UserCreateDto {
@@ -18,8 +27,12 @@ export interface UserCreateDto {
   fullName: string;
   role: UserRole;
   password: string;
+
+  // ✅ principal (matriz o default)
   branchId: number;
 
+  // ✅ accesos
+  branchIds: number[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -42,4 +55,8 @@ export class UsersApi {
   resetPassword(id: number, password: string): Observable<void> {
     return this.http.put<void>(`${this.base}/${id}/password`, { password });
   }
+setBranches(id: number, branchIds: number[]): Observable<void> {
+  return this.http.put<void>(`${this.base}/${id}/branches`, { branchIds });
+}
+
 }

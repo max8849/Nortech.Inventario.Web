@@ -3,18 +3,33 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 
-export type PurchaseOrderStatus = number; // 1 Pending, 2 Received, 3 Cancelled
+/**
+ * ESTATUS (4):
+ * 1 = Created     (Creado)
+ * 2 = InTransit   (En camino)
+ * 3 = Confirmed   (Confirmado)
+ * 4 = Cancelled   (Cancelado)
+ */
+export type PurchaseOrderStatus = 1 | 2 | 3 | 4;
 
 export type PurchaseOrderListRow = {
   id: number;
   status: PurchaseOrderStatus;
+
   branchId?: number;
   branchName?: string;
+
   createdAtUtc: string;
-  receivedAtUtc?: string | null;
+
+  // backend usa ConfirmedAtUtc = ReceivedAtUtc (compat)
+  confirmedAtUtc?: string | null;
+  receivedAtUtc?: string | null; // legacy, por si aún lo usas
+
   note?: string | null;
   receiveNote?: string | null;
+
   itemsCount?: number;
+
   totalOrdered?: number;
   totalReceived?: number;
 };
@@ -31,6 +46,18 @@ export type PurchaseOrderCreateDto = {
   items: PurchaseOrderCreateItemDto[];
 };
 
+// ===== Ship (Admin) =====
+export type PurchaseOrderShipItemDto = {
+  itemId: number;
+  quantityShipped: number;
+};
+
+export type PurchaseOrderShipDto = {
+  shipNote?: string | null;
+  items?: PurchaseOrderShipItemDto[];
+};
+
+// ===== Confirm (Staff/Admin) =====
 export type PurchaseOrderReceiveItemDto = {
   itemId: number;
   quantityReceived: number;
@@ -38,7 +65,7 @@ export type PurchaseOrderReceiveItemDto = {
 
 export type PurchaseOrderReceiveDto = {
   receiveNote?: string | null;
-  items: PurchaseOrderReceiveItemDto[];
+  items?: PurchaseOrderReceiveItemDto[]; // en tu backend: si no mandas items => recibido = ordenado/enviado
 };
 
 export type PurchaseOrderDetailItemRow = {
@@ -47,15 +74,20 @@ export type PurchaseOrderDetailItemRow = {
   sku: string;
   name: string;
   unit: string;
+
   quantityOrdered: number;
+
+  // ✅ NUEVO
+  quantityShipped?: number;
+
   quantityReceived: number;
   unitCost: number;
 };
 
 export type EvidenceDto = {
-  id: number;
+  id?: number;
   fileName: string;
-  contentType: string;
+  contentType?: string;
   sizeBytes: number;
   uploadedAtUtc: string;
   url: string; // "/uploads/..."
@@ -64,13 +96,23 @@ export type EvidenceDto = {
 export type PurchaseOrderDetailRow = {
   id: number;
   status: PurchaseOrderStatus;
+
   branchId: number;
   branchName: string;
+
   note?: string | null;
   receiveNote?: string | null;
+
   createdAtUtc: string;
+
+  // backend te manda ConfirmedAtUtc (compat)
+  confirmedAtUtc?: string | null;
   receivedAtUtc?: string | null;
+
   items: PurchaseOrderDetailItemRow[];
+
+  // backend suele mandar Evidence, pero dejamos ambos por compat del front
+  evidence?: EvidenceDto[];
   evidences?: EvidenceDto[];
 };
 
@@ -80,48 +122,96 @@ export class PurchaseOrdersApi {
 
   constructor(private http: HttpClient) {}
 
-  list(filters?: { status?: number; branchId?: number }): Observable<PurchaseOrderListRow[]> {
+  // Admin list
+  list(filters?: { status?: number | null; branchId?: number | null }): Observable<PurchaseOrderListRow[]> {
     let params = new HttpParams();
-    if (filters?.status != null) params = params.set('status', String(filters.status));
-    if (filters?.branchId != null) params = params.set('branchId', String(filters.branchId));
+
+    if (filters?.status != null && Number(filters.status) > 0) {
+      params = params.set('status', String(filters.status));
+    }
+    if (filters?.branchId != null && Number(filters.branchId) > 0) {
+      params = params.set('branchId', String(filters.branchId));
+    }
+
     return this.http.get<PurchaseOrderListRow[]>(this.base, { params });
   }
 
-  mine(): Observable<PurchaseOrderListRow[]> {
-    return this.http.get<PurchaseOrderListRow[]>(`${this.base}/mine`);
+  // Staff mine
+  mine(filters?: { status?: number | null; branchId?: number | null }): Observable<PurchaseOrderListRow[]> {
+    let params = new HttpParams();
+
+    if (filters?.status != null && Number(filters.status) > 0) {
+      params = params.set('status', String(filters.status));
+    }
+    if (filters?.branchId != null && Number(filters.branchId) > 0) {
+      params = params.set('branchId', String(filters.branchId));
+    }
+
+    return this.http.get<PurchaseOrderListRow[]>(`${this.base}/mine`, { params });
   }
 
-  // ✅ usa el tipado completo (incluye evidences si backend lo manda)
   get(id: number): Observable<PurchaseOrderDetailRow> {
     return this.http.get<PurchaseOrderDetailRow>(`${this.base}/${id}`);
+  }
+
+  // alias legacy
+  getDetail(id: number): Observable<PurchaseOrderDetailRow> {
+    return this.get(id);
   }
 
   create(dto: PurchaseOrderCreateDto): Observable<{ id: number }> {
     return this.http.post<{ id: number }>(this.base, dto);
   }
 
-  // (opcional) alias si ya lo usabas en componentes
-  getDetail(id: number): Observable<PurchaseOrderDetailRow> {
-    return this.get(id);
+  /**
+   * ✅ Admin: mandar mercancía (pasa a InTransit)
+   * Endpoint real en tu backend: POST /{id}/ship
+   */
+  ship(id: number, payload?: PurchaseOrderShipDto): Observable<string> {
+    const body: any = payload ?? {};
+    return this.http.post(`${this.base}/${id}/ship`, body, { responseType: 'text' });
   }
 
+  /**
+   * ✅ Staff/Admin: confirmar recepción (pasa a Confirmed)
+   * POST /{id}/confirm
+   */
+  confirm(id: number, dto?: PurchaseOrderReceiveDto): Observable<string> {
+    const body: any = dto ?? {};
+    return this.http.post(`${this.base}/${id}/confirm`, body, { responseType: 'text' });
+  }
+
+  /**
+   * LEGACY: /receive (tu backend lo deja como alias de confirm)
+   */
   receive(id: number, dto: PurchaseOrderReceiveDto): Observable<string> {
-    // backend devuelve texto "Recibida." -> responseType 'text'
     return this.http.post(`${this.base}/${id}/receive`, dto, { responseType: 'text' });
   }
 
   cancel(id: number): Observable<string> {
-    // si aún no existe en backend, no lo llames; pero así queda listo.
     return this.http.post(`${this.base}/${id}/cancel`, {}, { responseType: 'text' });
   }
 
-  uploadEvidence(id: number, files: File[]): Observable<EvidenceDto[]> {
-    const form = new FormData();
-    for (const f of (files || [])) form.append('files', f);
-    return this.http.post<EvidenceDto[]>(`${this.base}/${id}/evidence`, form);
+  uploadEvidence(id: number, files: File[]): Observable<any> {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f)); // “files”
+    return this.http.post(`${this.base}/${id}/evidence`, fd);
   }
 
-  deleteEvidence(poId: number, evidenceId: number): Observable<any> {
-    return this.http.delete(`${this.base}/${poId}/evidence/${evidenceId}`);
+  // backend devuelve 204 NoContent => mejor void
+  deleteEvidence(poId: number, fileName: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${poId}/evidence/${encodeURIComponent(fileName)}`);
   }
+
+  getPendingCount(branchId?: number | null): Observable<{ count: number }> {
+    let params = new HttpParams();
+    if (branchId != null && Number(branchId) > 0) {
+      params = params.set('branchId', String(branchId));
+    }
+    return this.http.get<{ count: number }>(`${this.base}/pending-count`, { params });
+  }
+  setInTransit(id: number): Observable<string> {
+  return this.ship(id, {});
+}
+
 }

@@ -1,100 +1,127 @@
 <div class="page">
   <div class="top">
-    <div>
+    <div class="titles">
       <h1>Informes</h1>
-      <p class="muted">Resumen visual para decisión rápida.</p>
+      <p class="muted">Resumen rápido para decidir.</p>
     </div>
 
-    <mat-button-toggle-group
-      [value]="days"
-      (change)="setDays($event.value)"
-    >
-      <mat-button-toggle [value]="7">7 días</mat-button-toggle>
-      <mat-button-toggle [value]="30">30 días</mat-button-toggle>
-      <mat-button-toggle [value]="90">90 días</mat-button-toggle>
-    </mat-button-toggle-group>
+    <div class="controls">
+<mat-form-field appearance="outline" class="branch" *ngIf="isAdmin || branches.length > 1">
+  <mat-label>Sucursal</mat-label>
+  <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="onBranchChange()">
+    <mat-option *ngIf="isAdmin" [value]="0">Todas</mat-option>
+    <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
+  </mat-select>
+</mat-form-field>
+
+
+      <mat-button-toggle-group [value]="days" (change)="setDays($event.value)" class="days">
+        <mat-button-toggle [value]="7">7 días</mat-button-toggle>
+        <mat-button-toggle [value]="30">30 días</mat-button-toggle>
+        <mat-button-toggle [value]="90">90 días</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
   </div>
 
-  <!-- Overlay de carga (no desmonta el contenido) -->
+  <div class="subline">
+    <span class="chip" *ngIf="branchLabel">
+      <mat-icon>store</mat-icon>
+      {{ branchLabel }}
+    </span>
+  </div>
+
+  <!-- Loading -->
   <div class="loading" *ngIf="loading">
     <mat-spinner diameter="30"></mat-spinner>
     <span>Cargando informes...</span>
   </div>
 
-  <!-- KPIs: se muestran si ya existe overview -->
-  <ng-container *ngIf="overview as ov">
-    <div class="kpis">
-      <mat-card class="kpi" appearance="outlined">
-        <div class="kpi-inner">
-          <mat-icon>inventory_2</mat-icon>
-          <div>
-            <div class="kpi-value">{{ ov.activeProducts }}</div>
-            <div class="kpi-label">Productos activos</div>
-          </div>
-        </div>
-      </mat-card>
+  <!-- Contenido (no render mientras loading para evitar brincos en móvil) -->
+  <ng-container *ngIf="!loading">
 
-      <mat-card class="kpi" appearance="outlined">
-        <div class="kpi-inner">
-          <mat-icon>warning</mat-icon>
-          <div>
-            <div class="kpi-value">{{ ov.lowStockCount }}</div>
-            <div class="kpi-label">Bajo stock</div>
+    <!-- KPIs -->
+    <ng-container *ngIf="overview as ov">
+      <div class="kpis">
+        <mat-card class="kpi" appearance="outlined">
+          <div class="kpi-inner">
+            <mat-icon>inventory_2</mat-icon>
+            <div>
+              <div class="kpi-value">{{ ov.activeProducts }}</div>
+              <div class="kpi-label">Productos activos</div>
+            </div>
           </div>
-        </div>
-      </mat-card>
+        </mat-card>
 
-      <mat-card class="kpi" appearance="outlined">
-        <div class="kpi-inner">
-          <mat-icon>stacked_bar_chart</mat-icon>
-          <div>
-            <div class="kpi-value">{{ ov.totalStockUnits }}</div>
-            <div class="kpi-label">Stock total (unidades)</div>
+        <mat-card class="kpi danger" appearance="outlined">
+          <div class="kpi-inner">
+            <mat-icon>report</mat-icon>
+            <div>
+              <div class="kpi-value">{{ ov.lowStockCount }}</div>
+              <div class="kpi-label">Sin stock</div>
+            </div>
           </div>
-        </div>
-      </mat-card>
+        </mat-card>
 
-      <mat-card class="kpi" appearance="outlined">
-        <div class="kpi-inner">
-          <mat-icon>swap_horiz</mat-icon>
-          <div>
-            <div class="kpi-value">{{ ov.movementsCount }}</div>
-            <div class="kpi-label">Movimientos ({{ days }} días)</div>
+        <mat-card class="kpi" appearance="outlined">
+          <div class="kpi-inner">
+            <mat-icon>swap_horiz</mat-icon>
+            <div>
+              <div class="kpi-value">{{ ov.movementsCount }}</div>
+              <div class="kpi-label">Movimientos ({{ days }} días)</div>
+            </div>
           </div>
-        </div>
-      </mat-card>
+        </mat-card>
+
+        <mat-card class="kpi" appearance="outlined">
+          <div class="kpi-inner">
+            <mat-icon>format_list_bulleted</mat-icon>
+            <div>
+              <div class="kpi-value">{{ ov.movementItemsCount }}</div>
+              <div class="kpi-label">Renglones movidos</div>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+
+      <mat-divider></mat-divider>
+    </ng-container>
+
+    <!-- Charts -->
+    <ng-container *ngIf="daily">
+      <div class="charts">
+        <mat-card class="chart-card" appearance="outlined">
+          <div class="chart-head">
+            <div>
+              <div class="chart-title">Entradas vs Salidas</div>
+              <div class="muted">Por día ({{ days }} días)</div>
+            </div>
+            <mat-icon class="hint">show_chart</mat-icon>
+          </div>
+
+          <div class="chart-wrap">
+            <canvas #lineCanvas></canvas>
+          </div>
+        </mat-card>
+
+        <mat-card class="chart-card" appearance="outlined">
+          <div class="chart-head">
+            <div>
+              <div class="chart-title">Top 10 productos más movidos</div>
+              <div class="muted">Volumen total ({{ days }} días)</div>
+            </div>
+            <mat-icon class="hint">bar_chart</mat-icon>
+          </div>
+
+          <div class="chart-wrap">
+            <canvas #barCanvas></canvas>
+          </div>
+        </mat-card>
+      </div>
+    </ng-container>
+
+    <!-- Empty -->
+    <div class="empty" *ngIf="!overview && !daily">
+      No hay datos para mostrar todavía.
     </div>
-
-    <mat-divider></mat-divider>
   </ng-container>
-
-  <!-- Charts: se muestran si ya existe daily -->
-  <ng-container *ngIf="daily">
-    <div class="charts">
-      <mat-card class="chart-card" appearance="outlined">
-        <div class="chart-head">
-          <div class="chart-title">Entradas vs Salidas</div>
-          <div class="muted">Por día ({{ days }} días)</div>
-        </div>
-        <div class="chart-wrap">
-          <canvas #lineCanvas></canvas>
-        </div>
-      </mat-card>
-
-      <mat-card class="chart-card" appearance="outlined">
-        <div class="chart-head">
-          <div class="chart-title">Top 10 productos más movidos</div>
-          <div class="muted">Por SKU ({{ days }} días)</div>
-        </div>
-        <div class="chart-wrap">
-          <canvas #barCanvas></canvas>
-        </div>
-      </mat-card>
-    </div>
-  </ng-container>
-
-  <!-- Estado vacío inicial -->
-  <div class="muted" *ngIf="!loading && !overview && !daily" style="padding: 12px;">
-    No hay datos para mostrar todavía.
-  </div>
 </div>

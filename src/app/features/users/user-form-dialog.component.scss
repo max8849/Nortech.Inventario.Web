@@ -10,9 +10,10 @@ h2 { margin: 0; font-size: 18px; font-weight: 900; }
 
 @media (min-width: 640px) {
   .form { grid-template-columns: 1fr 1fr; }
-  .form mat-form-field:nth-child(3),
-  .form mat-form-field:nth-child(4) { grid-column: span 1; }
+  /* que el multi-select de sucursales ocupe todo el ancho */
+  .form mat-form-field:nth-child(5) { grid-column: span 2; }
 }
+
 
 .actions {
   display:flex;

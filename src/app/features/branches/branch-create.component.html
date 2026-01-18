@@ -1,0 +1,31 @@
+<mat-card class="wrap" appearance="outlined">
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <div class="head">
+      <div>
+        <h2>Nueva sucursal</h2>
+        <p class="muted">Alta de sucursal (Admin).</p>
+      </div>
+    </div>
+
+    <div class="grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Nombre</mat-label>
+        <input matInput formControlName="name" placeholder="Ej. Matriz" />
+      </mat-form-field>
+    </div>
+
+    <div class="actions">
+      <button mat-button type="button" (click)="cancel()">Cancelar</button>
+
+      <button mat-raised-button color="primary" type="submit" [disabled]="saving || form.invalid">
+        <mat-icon>save</mat-icon>
+        Guardar
+      </button>
+
+      <div class="saving" *ngIf="saving">
+        <mat-spinner diameter="18"></mat-spinner>
+        Guardando...
+      </div>
+    </div>
+  </form>
+</mat-card>

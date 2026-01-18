@@ -1,9 +1,12 @@
 <mat-card appearance="outlined" class="wrap">
   <div class="top">
     <div>
-      <h2>Órdenes de compra</h2>
+      <h2>Pedidos</h2>
       <p class="muted">
-        {{ isAdmin ? 'Crea y asigna órdenes a sucursales.' : 'Órdenes asignadas a tu sucursal.' }}
+        {{ isAdmin
+          ? 'Administra pedidos: marca En camino y revisa confirmaciones.'
+          : 'Crea pedidos de faltantes y confirma cuando te llegue.'
+        }}
       </p>
     </div>
 
@@ -13,118 +16,158 @@
         Recargar
       </button>
 
-<button
-  *ngIf="isAdmin"
-  mat-raised-button
-  color="primary"
-  type="button"
-  [disabled]="loading"
-  (click)="goCreate()"
->
-  <mat-icon>add</mat-icon>
-  Nueva orden
-</button>
-
-
-
+      <button mat-raised-button color="primary" type="button" (click)="goCreate()" [disabled]="loading">
+        <mat-icon>add</mat-icon>
+        Nuevo pedido
+      </button>
     </div>
   </div>
 
-  <!-- Filtros admin -->
-  <div class="filters" *ngIf="isAdmin">
-    <mat-form-field appearance="outline" style="width: 220px;">
+  <!-- Filtros -->
+  <div class="filters">
+    <!-- Selector sucursal:
+         Admin: puede "Todas"
+         Staff: solo si tiene más de 1 -->
+    <mat-form-field *ngIf="isAdmin || branches.length > 1" appearance="outline" class="f">
       <mat-label>Sucursal</mat-label>
-      <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="load()">
-        <mat-option [value]="0">Todas</mat-option>
+      <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="onBranchChange()">
+        <mat-option *ngIf="isAdmin" [value]="0">Todas</mat-option>
         <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
       </mat-select>
     </mat-form-field>
 
-    <mat-form-field appearance="outline" style="width: 220px;">
+    <mat-form-field appearance="outline" class="f">
       <mat-label>Estatus</mat-label>
       <mat-select [(ngModel)]="selectedStatus" (selectionChange)="load()">
         <mat-option [value]="0">Todos</mat-option>
-        <mat-option [value]="1">Pendiente</mat-option>
-        <mat-option [value]="2">Recibida</mat-option>
-        <mat-option [value]="3">Cancelada</mat-option>
+        <mat-option [value]="1">Creado</mat-option>
+        <mat-option [value]="2">En camino</mat-option>
+        <mat-option [value]="3">Confirmado</mat-option>
+        <mat-option [value]="4">Cancelado</mat-option>
       </mat-select>
     </mat-form-field>
-
-<!-- Catálogo de Secciones (solo Admin, visual) -->
-<div class="sections-catalog" *ngIf="isAdmin">
-  <div class="muted" style="margin: 8px 0 6px;">
-    Secciones activas (catálogo):
   </div>
 
-  <div *ngIf="sections.length === 0" class="muted">No hay secciones activas.</div>
-
-  <div *ngIf="sections.length > 0" style="display:flex; flex-wrap:wrap; gap:6px;">
-    <span
-      *ngFor="let s of sections"
-      style="padding:4px 10px; border:1px solid #ddd; border-radius:999px; font-size:12px;"
-    >
-      {{ s.name }}
-    </span>
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading">
+    <mat-spinner diameter="22"></mat-spinner>
+    <span>Cargando...</span>
   </div>
-</div>
 
+  <ng-container *ngIf="!loading">
+    <!-- Desktop -->
+    <div class="desktopOnly" *ngIf="rows.length > 0">
+      <table mat-table [dataSource]="rows" class="mat-elevation-z2 table">
+        <ng-container matColumnDef="id">
+          <th mat-header-cell *matHeaderCellDef>#</th>
+          <td mat-cell *matCellDef="let r">#{{ r.id }}</td>
+        </ng-container>
 
-    <div *ngIf="loading" class="loading">
-      <mat-spinner diameter="22"></mat-spinner>
-      <span>Cargando...</span>
+        <ng-container matColumnDef="branch">
+          <th mat-header-cell *matHeaderCellDef>Sucursal</th>
+          <td mat-cell *matCellDef="let r">{{ r.branchName || r.branchId }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Estatus</th>
+          <td mat-cell *matCellDef="let r">
+            <span class="pill" [ngClass]="statusClass(r.status)">{{ statusLabel(r.status) }}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="created">
+          <th mat-header-cell *matHeaderCellDef>Creado</th>
+          <td mat-cell *matCellDef="let r">{{ formatDateTime(r.createdAtUtc) }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="items">
+          <th mat-header-cell *matHeaderCellDef>Items</th>
+          <td mat-cell *matCellDef="let r">{{ r.itemsCount ?? '-' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="note">
+          <th mat-header-cell *matHeaderCellDef>Nota</th>
+          <td mat-cell *matCellDef="let r">{{ r.note || '' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let r" class="rowActions">
+            <button mat-stroked-button type="button" (click)="open(r.id)">
+              <mat-icon>visibility</mat-icon>
+              Ver
+            </button>
+
+            <!-- Acción rápida: Admin marca En camino si está Creado -->
+            <button
+              *ngIf="isAdmin && r.status === 1"
+              mat-stroked-button
+              type="button"
+              (click)="markInTransit(r)"
+            >
+              <mat-icon>local_shipping</mat-icon>
+              En camino
+            </button>
+
+            <!-- Acción rápida: Staff confirma si está En camino -->
+            <button
+              *ngIf="!isAdmin && r.status === 2"
+              mat-stroked-button
+              type="button"
+              (click)="confirm(r)"
+            >
+              <mat-icon>check_circle</mat-icon>
+              Confirmar
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
     </div>
-  </div>
 
-  <!-- Tabla -->
-  <table mat-table [dataSource]="rows" class="mat-elevation-z2" *ngIf="!loading">
-    <ng-container matColumnDef="id">
-      <th mat-header-cell *matHeaderCellDef>#</th>
-      <td mat-cell *matCellDef="let r">{{ r.id }}</td>
-    </ng-container>
+    <!-- Mobile cards -->
+    <div class="mobileOnly" *ngIf="rows.length > 0">
+      <div class="cards">
+        <mat-card appearance="outlined" class="card" *ngFor="let r of rows">
+          <div class="cardTop">
+            <div>
+              <div class="id">Pedido #{{ r.id }}</div>
+              <div class="meta">
+                <div><b>Sucursal:</b> {{ r.branchName || r.branchId }}</div>
+                <div><b>Creado:</b> {{ formatDateTime(r.createdAtUtc) }}</div>
+              </div>
+            </div>
+            <span class="pill" [ngClass]="statusClass(r.status)">{{ statusLabel(r.status) }}</span>
+          </div>
 
-    <ng-container matColumnDef="branch" *ngIf="isAdmin">
-      <th mat-header-cell *matHeaderCellDef>Sucursal</th>
-      <td mat-cell *matCellDef="let r">{{ r.branchName || r.branchId }}</td>
-    </ng-container>
+          <div class="cardBody">
+            <div class="muted" *ngIf="r.note">{{ r.note }}</div>
 
-    <ng-container matColumnDef="status">
-      <th mat-header-cell *matHeaderCellDef>Estatus</th>
-      <td mat-cell *matCellDef="let r">
-        <span class="pill">{{ statusLabel(r.status) }}</span>
-      </td>
-    </ng-container>
+            <div class="cardActions">
+              <button mat-stroked-button type="button" (click)="open(r.id)">
+                <mat-icon>visibility</mat-icon>
+                Ver
+              </button>
 
-    <ng-container matColumnDef="created">
-      <th mat-header-cell *matHeaderCellDef>Creada</th>
-<td mat-cell *matCellDef="let r">{{ formatDateTime(r.createdAtUtc) }}</td>
-    </ng-container>
+              <button *ngIf="isAdmin && r.status === 1" mat-stroked-button type="button" (click)="markInTransit(r)">
+                <mat-icon>local_shipping</mat-icon>
+                En camino
+              </button>
 
-    <ng-container matColumnDef="items">
-      <th mat-header-cell *matHeaderCellDef>Items</th>
-      <td mat-cell *matCellDef="let r">{{ r.itemsCount ?? '-' }}</td>
-    </ng-container>
+              <button *ngIf="!isAdmin && r.status === 2" mat-stroked-button type="button" (click)="confirm(r)">
+                <mat-icon>check_circle</mat-icon>
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+    </div>
 
-    <ng-container matColumnDef="note">
-      <th mat-header-cell *matHeaderCellDef>Nota</th>
-      <td mat-cell *matCellDef="let r">{{ r.note || '' }}</td>
-    </ng-container>
-
-    <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-    <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-
-    <ng-container matColumnDef="actions">
-  <th mat-header-cell *matHeaderCellDef> </th>
-  <td mat-cell *matCellDef="let r">
-    <button mat-stroked-button type="button" (click)="open(r.id)">
-      <mat-icon>visibility</mat-icon>
-      Ver
-    </button>
-  </td>
-</ng-container>
-
-  </table>
-
-  <div class="empty" *ngIf="!loading && rows.length === 0">
-    No hay órdenes.
-  </div>
+    <div class="empty" *ngIf="rows.length === 0">
+      No hay pedidos.
+    </div>
+  </ng-container>
 </mat-card>

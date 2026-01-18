@@ -4,20 +4,15 @@
       <div class="titleline">
         <h2>OC #{{ po?.id }}</h2>
 
-        <span
-          class="pill"
-          [class.pending]="isPending()"
-          [class.received]="isReceived()"
-          [class.cancelled]="isCancelled()"
-        >
+        <span class="pill" [ngClass]="statusClass()">
           {{ statusLabel() }}
         </span>
       </div>
 
-      <div class="meta">
-        <span><b>Sucursal:</b> {{ po?.branchName }}</span>
-        <span><b>Creada:</b> {{ formatDateTime(po?.createdAtUtc) }}</span>
-        <span *ngIf="po?.receivedAtUtc"><b>Recibida:</b> {{ formatDateTime(po?.receivedAtUtc) }}</span>
+      <div class="meta" *ngIf="po">
+        <span><b>Sucursal:</b> {{ po.branchName }}</span>
+        <span><b>Creada:</b> {{ formatDateTime(po.createdAtUtc) }}</span>
+        <span *ngIf="po.confirmedAtUtc"><b>Confirmada:</b> {{ formatDateTime(po.confirmedAtUtc) }}</span>
       </div>
     </div>
 
@@ -27,24 +22,38 @@
         Volver
       </button>
 
-      <button *ngIf="isAdmin" mat-stroked-button type="button" (click)="print()">
+      <button *ngIf="isAdmin && po" mat-stroked-button type="button" (click)="print()">
         <mat-icon>print</mat-icon>
         Imprimir
       </button>
 
+      <!-- ✅ ADMIN: Created => Mandar mercancía (modo ship) -->
       <button
-        *ngIf="isPending()"
+        *ngIf="isAdmin && isCreated()"
+        mat-stroked-button
+        color="primary"
+        type="button"
+        (click)="toggleShipMode()"
+      >
+        <mat-icon>{{ shipMode ? 'visibility' : 'local_shipping' }}</mat-icon>
+        {{ shipMode ? 'Ver' : 'Mandar mercancía' }}
+      </button>
+
+      <!-- ✅ STAFF/ADMIN: InTransit => Recibir -->
+      <button
+        *ngIf="isInTransit()"
         mat-stroked-button
         color="primary"
         type="button"
         (click)="toggleReceiveMode()"
       >
         <mat-icon>{{ receiveMode ? 'visibility' : 'fact_check' }}</mat-icon>
-        {{ receiveMode ? 'Ver' : 'Recibir' }}
+        {{ receiveMode ? 'Ver' : 'Recibir pedido' }}
       </button>
 
+      <!-- ✅ Cancelar solo Admin y solo si Created -->
       <button
-        *ngIf="isAdmin && isPending()"
+        *ngIf="isAdmin && isCreated()"
         mat-stroked-button
         color="warn"
         type="button"
@@ -59,149 +68,51 @@
 
   <mat-divider></mat-divider>
 
-  <div class="note" *ngIf="po?.note">
-    <mat-icon>note</mat-icon>
-    <div>
-      <div class="noteTitle">Nota</div>
-      <div class="noteText">{{ po?.note }}</div>
-    </div>
-  </div>
-
-  <!-- ✅ EVIDENCIA -->
-  <div class="evidence" *ngIf="po">
-    <div class="evidenceHead">
-      <div class="evidenceTitle">
-        <mat-icon>photo_camera</mat-icon>
-        <div>
-          <div class="t">Evidencia</div>
-          <div class="muted s">Fotos/archivos relacionados a esta OC.</div>
-        </div>
-      </div>
-
-      <div class="evidenceActions">
-        <!-- Subir evidencia: típicamente solo cuando está pendiente -->
-        <ng-container *ngIf="isPending()">
-          <!-- input oculto -->
-          <input
-            #evidenceInput
-            type="file"
-            accept="image/*,.pdf"
-            style="display:none"
-            (change)="onEvidenceSelected($event)"
-          />
-
-          <button
-            mat-stroked-button
-            type="button"
-            [disabled]="saving || evidenceUploading"
-            (click)="evidenceInput.click()"
-          >
-            <mat-icon>upload</mat-icon>
-            Subir
-          </button>
-
-          <div class="uploading" *ngIf="evidenceUploading">
-            <mat-spinner diameter="16"></mat-spinner>
-            <span>Subiendo...</span>
-          </div>
-        </ng-container>
-      </div>
-    </div>
-
-    <div class="evidenceGrid" *ngIf="(po.evidence?.length || 0) > 0; else noEvidence">
-      <div class="evCard" *ngFor="let ev of po.evidence">
-        <button class="evPreview" type="button" (click)="openEvidence(ev)">
-          <!-- preview si es imagen -->
-          <img
-            *ngIf="isImage(ev?.fileName)"
-            [src]="ev.url"
-            [alt]="ev.fileName"
-            loading="lazy"
-          />
-
-          <!-- placeholder si no es imagen -->
-          <div class="evFile" *ngIf="!isImage(ev?.fileName)">
-            <mat-icon>description</mat-icon>
-            <div class="name">{{ ev.fileName }}</div>
-          </div>
-        </button>
-
-        <div class="evMeta">
-          <div class="left">
-            <div class="fname" [title]="ev.fileName">{{ ev.fileName }}</div>
-            <div class="muted small">
-            {{ formatDateTime(ev.uploadedAtUtc) }}
-              <span class="dot">•</span>
-              {{ formatBytes(ev.sizeBytes) }}
-            </div>
-          </div>
-
-          <div class="right">
-            <button mat-icon-button type="button" (click)="openEvidence(ev)" aria-label="Abrir">
-              <mat-icon>open_in_new</mat-icon>
-            </button>
-
-            <button
-              *ngIf="isAdmin"
-              mat-icon-button
-              color="warn"
-              type="button"
-              (click)="deleteEvidence(ev)"
-              aria-label="Eliminar"
-            >
-              <mat-icon>delete</mat-icon>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <ng-template #noEvidence>
-      <div class="emptyEvidence">
-        No hay evidencia cargada.
-      </div>
-    </ng-template>
-  </div>
-
   <!-- Loading -->
   <div class="loading" *ngIf="loading">
     <mat-spinner diameter="26"></mat-spinner>
     <span>Cargando...</span>
   </div>
 
-  <!-- BODY -->
   <ng-container *ngIf="!loading && po">
-    <!-- Acciones rápidas modo recibir -->
-    <div class="receiveTools" *ngIf="receiveMode && isPending()">
-      <button mat-stroked-button type="button" (click)="setAllReceivedToOrdered()">
+
+    <!-- input oculto GLOBAL -->
+    <input
+      #evidenceInput
+      type="file"
+      accept="image/*,.pdf"
+      multiple
+      style="display:none"
+      (change)="onEvidenceSelected($event)"
+    />
+
+    <!-- ===== Acciones de Envío (Admin) ===== -->
+    <div class="tools shipTools" *ngIf="shipMode && isAdmin && isCreated()">
+      <button mat-stroked-button type="button" (click)="setAllShippedToOrdered()">
         <mat-icon>done_all</mat-icon>
         Todo = ordenado
       </button>
 
-      <button mat-stroked-button type="button" (click)="setAllReceivedToZero()">
+      <button mat-stroked-button type="button" (click)="setAllShippedToZero()">
         <mat-icon>clear_all</mat-icon>
         Todo = 0
       </button>
 
-      <mat-form-field appearance="outline" class="receiveNote">
-        <mat-label>Nota de recepción (opcional)</mat-label>
-        <input
-          matInput
-          [(ngModel)]="receiveNote"
-          placeholder="Ej: faltó jabón Ariel, llegó roto..."
-        />
+      <mat-form-field appearance="outline" class="noteField">
+        <mat-label>Nota de envío (opcional)</mat-label>
+        <input matInput [(ngModel)]="shipNote" placeholder="Ej: faltó 1 pieza, no había en almacén..." />
       </mat-form-field>
 
       <button
         mat-raised-button
         color="primary"
         type="button"
-        class="receiveBtn"
-        [disabled]="!canReceive()"
-        (click)="receive()"
+        class="primaryBtn"
+        [disabled]="!canShip()"
+        (click)="ship()"
       >
-        <mat-icon>check_circle</mat-icon>
-        Marcar como recibida
+        <mat-icon>local_shipping</mat-icon>
+        Marcar EN CAMINO
       </button>
 
       <div class="saving" *ngIf="saving">
@@ -210,7 +121,183 @@
       </div>
     </div>
 
-    <!-- LISTA -->
+    <!-- ===== Acciones de Recepción (Staff/Admin) ===== -->
+    <div class="tools receiveTools" *ngIf="receiveMode && isInTransit()">
+      <button mat-stroked-button type="button" (click)="setAllReceivedToCap()">
+        <mat-icon>done_all</mat-icon>
+        Todo = enviado
+      </button>
+
+      <button mat-stroked-button type="button" (click)="setAllReceivedToZero()">
+        <mat-icon>clear_all</mat-icon>
+        Todo = 0
+      </button>
+
+      <mat-form-field appearance="outline" class="noteField">
+        <mat-label>Nota de recepción (opcional)</mat-label>
+        <input matInput [(ngModel)]="receiveNote" placeholder="Ej: llegó roto / faltó caja / etc..." />
+      </mat-form-field>
+
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        class="primaryBtn"
+        [disabled]="!canReceive()"
+        (click)="receive()"
+      >
+        <mat-icon>check_circle</mat-icon>
+        Confirmar recepción
+      </button>
+
+      <div class="saving" *ngIf="saving">
+        <mat-spinner diameter="18"></mat-spinner>
+        Guardando...
+      </div>
+    </div>
+
+    <!-- ===== Evidencia (solo Confirmed) ===== -->
+    <div class="infoGrid">
+      <mat-card appearance="outlined" class="infoCard" *ngIf="po.note">
+        <div class="infoHead">
+          <div class="infoTitle">
+            <mat-icon>note</mat-icon>
+            <div>
+              <div class="t">Nota</div>
+              <div class="muted s">Comentario de la orden</div>
+            </div>
+          </div>
+        </div>
+        <div class="infoBody">
+          <div class="noteText">{{ po.note }}</div>
+        </div>
+      </mat-card>
+
+      <mat-card appearance="outlined" class="infoCard evidenceCard" *ngIf="isConfirmed()">
+        <div class="infoHead">
+          <div class="infoTitle">
+            <mat-icon>photo_camera</mat-icon>
+            <div>
+              <div class="t">Evidencia</div>
+              <div class="muted s">Solo disponible cuando la OC está confirmada.</div>
+            </div>
+          </div>
+
+          <div class="infoActions">
+            <button
+              mat-stroked-button
+              type="button"
+              [disabled]="saving || evidenceUploading"
+              (click)="openEvidencePicker()"
+            >
+              <mat-icon>upload</mat-icon>
+              Agregar
+            </button>
+
+            <div class="uploading" *ngIf="evidenceUploading">
+              <mat-spinner diameter="16"></mat-spinner>
+              <span>Subiendo...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- preview pendiente -->
+        <div class="pendingUpload" *ngIf="selectedFiles.length > 0">
+          <div class="pendingTitle">
+            <mat-icon>cloud_upload</mat-icon>
+            <div>
+              <div class="t">Listo para subir</div>
+              <div class="muted s">Revisa y confirma.</div>
+            </div>
+
+            <span class="spacer"></span>
+
+            <button mat-stroked-button type="button" (click)="clearSelected()" [disabled]="evidenceUploading">
+              <mat-icon>close</mat-icon>
+              Quitar
+            </button>
+
+            <button
+              mat-raised-button
+              color="primary"
+              type="button"
+              (click)="uploadEvidence()"
+              [disabled]="evidenceUploading || saving"
+            >
+              <mat-icon>upload</mat-icon>
+              Subir ahora
+            </button>
+          </div>
+
+          <div class="pendingGrid">
+            <div class="pCard" *ngFor="let p of pendingPreviews">
+              <div class="pThumb" *ngIf="p.isImage; else fileIcon">
+                <img [src]="p.url" [alt]="p.name" />
+              </div>
+
+              <ng-template #fileIcon>
+                <div class="pFile">
+                  <mat-icon>description</mat-icon>
+                  <div class="name">{{ p.name }}</div>
+                </div>
+              </ng-template>
+
+              <div class="pMeta">
+                <div class="name" [title]="p.name">{{ p.name }}</div>
+                <div class="muted small">{{ formatBytes(p.size) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- grid evidencia -->
+        <div class="evidenceGrid" *ngIf="(po.evidence?.length || 0) > 0;">
+          <div class="evCard" *ngFor="let ev of po.evidence">
+            <button class="evPreview" type="button" (click)="openEvidence(ev)">
+              <img *ngIf="isImage(ev.fileName)" [src]="ev.url" [alt]="ev.fileName" loading="lazy" />
+              <div class="evFile" *ngIf="!isImage(ev.fileName)">
+                <mat-icon>description</mat-icon>
+                <div class="name">{{ ev.fileName }}</div>
+              </div>
+            </button>
+
+            <div class="evMeta">
+              <div class="left">
+                <div class="fname" [title]="ev.fileName">{{ ev.fileName }}</div>
+                <div class="muted small">
+                  {{ formatDateTime(ev.uploadedAtUtc) }}
+                  <span class="dot">•</span>
+                  {{ formatBytes(ev.sizeBytes) }}
+                </div>
+              </div>
+
+              <div class="right">
+                <button mat-icon-button type="button" (click)="openEvidence(ev)" aria-label="Abrir">
+                  <mat-icon>open_in_new</mat-icon>
+                </button>
+
+                <button
+                  *ngIf="isAdmin"
+                  mat-icon-button
+                  color="warn"
+                  type="button"
+                  (click)="deleteEvidence(ev)"
+                  aria-label="Eliminar"
+                >
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="emptySmall" *ngIf="(po.evidence?.length || 0) === 0 && selectedFiles.length === 0">
+          No hay evidencia todavía.
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- ===== Lista de items ===== -->
     <div class="list">
       <mat-card class="itemCard" appearance="outlined" *ngFor="let it of po.items">
         <div class="itemHead">
@@ -223,25 +310,67 @@
             </div>
           </div>
 
-          <div class="qtyInfo" *ngIf="!receiveMode">
-            <div class="small muted">Ordenado</div>
-            <div class="big">{{ it.quantityOrdered }}</div>
+          <div class="qtyStack" *ngIf="!shipMode && !receiveMode">
+            <div class="kv">
+              <div class="k">Ordenado</div>
+              <div class="v">{{ it.quantityOrdered }}</div>
+            </div>
 
-            <div class="small muted" *ngIf="!isPending()">
-              Recibido: <b>{{ it.quantityReceived }}</b>
+            <div class="kv" *ngIf="isInTransit() || isConfirmed()">
+              <div class="k">Enviado</div>
+              <div class="v">{{ it.quantityShipped }}</div>
+            </div>
+
+            <div class="kv" *ngIf="isConfirmed()">
+              <div class="k">Recibido</div>
+              <div class="v">{{ it.quantityReceived }}</div>
             </div>
           </div>
         </div>
 
-        <!-- MODO RECIBIR -->
-        <div class="receiveRow" *ngIf="receiveMode && isPending()">
-          <div class="ordered">
+        <!-- Admin Ship Mode -->
+        <div class="editRow" *ngIf="shipMode && isAdmin && isCreated()">
+          <div class="badgeCol">
             <div class="small muted">Ordenado</div>
             <div class="big">{{ it.quantityOrdered }}</div>
           </div>
 
           <div class="counter">
-            <button mat-stroked-button type="button" class="counterBtn" (click)="dec(it.id)">
+            <button mat-stroked-button type="button" class="counterBtn" (click)="dec('ship', it.id)">
+              <mat-icon>remove</mat-icon>
+            </button>
+
+            <input
+              class="counterInput"
+              type="number"
+              [value]="shippedMap[it.id] ?? 0"
+              (input)="setValue('ship', it.id, $any($event.target).value)"
+              inputmode="numeric"
+              min="0"
+            />
+
+            <button mat-stroked-button type="button" class="counterBtn" (click)="inc('ship', it.id)">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+
+          <div class="quick">
+            <button mat-button type="button" (click)="inc('ship', it.id, 5)">+5</button>
+            <button mat-button type="button" (click)="inc('ship', it.id, 10)">+10</button>
+            <button mat-button type="button" (click)="setValue('ship', it.id, it.quantityOrdered)">=Orden</button>
+          </div>
+        </div>
+
+        <!-- Staff Receive Mode -->
+        <div class="editRow" *ngIf="receiveMode && isInTransit()">
+          <div class="badgeCol">
+            <div class="small muted">Enviado</div>
+            <div class="big">{{ it.quantityShipped }}</div>
+            <div class="small muted">Ordenado: {{ it.quantityOrdered }}</div>
+          </div>
+
+          <div class="counter">
+            <button mat-stroked-button type="button" class="counterBtn" (click)="dec('recv', it.id)">
               <mat-icon>remove</mat-icon>
             </button>
 
@@ -249,20 +378,20 @@
               class="counterInput"
               type="number"
               [value]="receivedMap[it.id] ?? 0"
-              (input)="setReceived(it.id, $any($event.target).value)"
+              (input)="setValue('recv', it.id, $any($event.target).value)"
               inputmode="numeric"
               min="0"
             />
 
-            <button mat-stroked-button type="button" class="counterBtn" (click)="inc(it.id)">
+            <button mat-stroked-button type="button" class="counterBtn" (click)="inc('recv', it.id)">
               <mat-icon>add</mat-icon>
             </button>
           </div>
 
           <div class="quick">
-            <button mat-button type="button" (click)="inc(it.id, 5)">+5</button>
-            <button mat-button type="button" (click)="inc(it.id, 10)">+10</button>
-            <button mat-button type="button" (click)="setReceived(it.id, it.quantityOrdered)">=Orden</button>
+            <button mat-button type="button" (click)="inc('recv', it.id, 5)">+5</button>
+            <button mat-button type="button" (click)="inc('recv', it.id, 10)">+10</button>
+            <button mat-button type="button" (click)="setValue('recv', it.id, it.quantityShipped)">=Enviado</button>
           </div>
         </div>
       </mat-card>
@@ -271,5 +400,6 @@
     <div class="empty" *ngIf="po.items.length === 0">
       No hay productos en esta orden.
     </div>
+
   </ng-container>
 </mat-card>

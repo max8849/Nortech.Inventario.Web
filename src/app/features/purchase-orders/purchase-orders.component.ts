@@ -15,11 +15,9 @@ import { finalize } from 'rxjs/operators';
 
 import { PurchaseOrdersApi, PurchaseOrderListRow } from '../../core/api/purchase-orders.api';
 import { BranchesApi } from '../../core/api/branches.api';
+import { SessionService, BranchLite } from '../../core/session/session.service';
 
-// ✅ nuevo
-import { SectionsApi, SectionRow } from '../../core/api/sections.api';
-
-type BranchOpt = { id: number; name: string; isActive: boolean };
+type BranchOpt = { id: number; name: string; isActive?: boolean };
 
 @Component({
   selector: 'app-purchase-orders',
@@ -41,107 +39,137 @@ type BranchOpt = { id: number; name: string; isActive: boolean };
 export class PurchaseOrdersComponent implements OnInit {
   loading = false;
 
-  isAdmin = ((localStorage.getItem('role') || '').toLowerCase() === 'admin');
+  isAdmin = false;
 
-  // filtros admin
   branches: BranchOpt[] = [];
   selectedBranchId = 0;
   selectedStatus = 0;
 
   rows: PurchaseOrderListRow[] = [];
 
-  // ✅ catálogo secciones (solo mostrar)
-  sections: SectionRow[] = [];
-
-  displayedColumns = this.isAdmin
-    ? ['id', 'branch', 'status', 'created', 'items', 'note', 'actions']
-    : ['id', 'status', 'created', 'items', 'note', 'actions'];
+  displayedColumns: string[] = ['id', 'branch', 'status', 'created', 'items', 'note', 'actions'];
 
   constructor(
     private api: PurchaseOrdersApi,
     private branchesApi: BranchesApi,
-    private sectionsApi: SectionsApi, // ✅ nuevo
+    private session: SessionService,
     private router: Router
   ) {}
 
   ngOnInit(): void {
+    this.isAdmin = this.session.isAdmin();
+
     if (this.isAdmin) {
       this.branchesApi.list().subscribe({
         next: (bs: any[]) => {
-          this.branches = bs
-            .map(x => ({ id: x.id ?? x.Id, name: x.name ?? x.Name, isActive: x.isActive ?? x.IsActive }))
-            .filter(b => b.isActive);
-        },
-        error: (e) => console.error('No se pudieron cargar sucursales', e)
-      });
+          this.branches = (bs || [])
+            .map((x: any) => ({
+              id: x.id ?? x.Id,
+              name: x.name ?? x.Name,
+              isActive: x.isActive ?? x.IsActive
+            }))
+            .filter((b: BranchOpt) => !!b.isActive);
 
-      // ✅ cargar secciones activas (catálogo)
-      this.sectionsApi.list(false).subscribe({
-        next: (ss) => {
-          this.sections = (ss || []).filter(s => s.isActive);
+          this.selectedBranchId = 0; // todas
+          this.load();
         },
         error: (e) => {
-          console.error('No se pudieron cargar secciones', e);
-          this.sections = [];
+          console.error('No se pudieron cargar sucursales', e);
+          this.branches = [];
+          this.selectedBranchId = 0;
+          this.load();
         }
       });
-    }
+    } else {
+      // Staff: sucursales desde sesión
+      const staffBranches: BranchLite[] = this.session.branches();
+      this.branches = staffBranches.map(b => ({ id: b.id, name: b.name, isActive: true }));
 
+      // default: sucursal activa
+      this.selectedBranchId = this.session.activeBranchId() || (this.branches[0]?.id ?? 0);
+      if (this.selectedBranchId) this.session.setActiveBranchId(this.selectedBranchId);
+
+      this.load();
+    }
+  }
+
+  onBranchChange(): void {
+    if (!this.isAdmin) this.session.setActiveBranchId(this.selectedBranchId);
     this.load();
+  }
+
+  load(): void {
+    this.loading = true;
+
+    const status = this.selectedStatus > 0 ? this.selectedStatus : undefined;
+
+    // Admin: 0 => todas => undefined
+    const branchId = this.selectedBranchId > 0 ? this.selectedBranchId : undefined;
+
+    const req$ = this.isAdmin
+      ? this.api.list({ status, branchId })
+      : this.api.mine({ status, branchId: this.selectedBranchId > 0 ? this.selectedBranchId : undefined });
+
+    req$
+      .pipe(finalize(() => (this.loading = false)))
+      .subscribe({
+        next: (data) => (this.rows = data ?? []),
+        error: (err) => console.error(err)
+      });
   }
 
   open(id: number) {
     this.router.navigateByUrl(`/purchase-orders/${id}`);
   }
 
-  load(): void {
+  goCreate(): void {
+    this.router.navigateByUrl('/purchase-orders/create');
+  }
+
+  async markInTransit(r: PurchaseOrderListRow) {
+    if (r.status !== 1) return;
     this.loading = true;
-
-    const req$ = this.isAdmin
-      ? this.api.list({
-          status: this.selectedStatus || undefined,
-          branchId: this.selectedBranchId || undefined
-        })
-      : this.api.mine();
-
-    req$
+    this.api.setInTransit(r.id)
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
-        next: (data) => (this.rows = data),
-        error: (err) => console.error(err)
+        next: () => this.load(),
+        error: (e: any) => console.error(e)
+      });
+  }
+
+  async confirm(r: PurchaseOrderListRow) {
+    if (r.status !== 2) return;
+    this.loading = true;
+    this.api.confirm(r.id)
+      .pipe(finalize(() => (this.loading = false)))
+      .subscribe({
+        next: () => this.load(),
+        error: (e) => console.error(e)
       });
   }
 
   statusLabel(s: any): string {
-    if (typeof s === 'number') {
-      if (s === 1) return 'PENDIENTE';
-      if (s === 2) return 'RECIBIDA';
-      if (s === 3) return 'CANCELADA';
-      return String(s);
-    }
-    const v = String(s || '').toLowerCase();
-    if (v.includes('pending')) return 'PENDIENTE';
-    if (v.includes('received')) return 'RECIBIDA';
-    if (v.includes('cancel')) return 'CANCELADA';
+    const n = Number(s);
+    if (n === 1) return 'CREADO';
+    if (n === 2) return 'EN CAMINO';
+    if (n === 3) return 'CONFIRMADO';
+    if (n === 4) return 'CANCELADO';
     return String(s);
   }
 
-  shortDate(iso: string): string {
-    if (!iso) return '';
-    return iso.slice(0, 10);
+  statusClass(s: any): 'created' | 'transit' | 'confirmed' | 'cancelled' | 'other' {
+    const n = Number(s);
+    if (n === 1) return 'created';
+    if (n === 2) return 'transit';
+    if (n === 3) return 'confirmed';
+    if (n === 4) return 'cancelled';
+    return 'other';
   }
 
-  goCreate(): void {
-    this.router.navigateByUrl('/purchase-orders/create');
-  }
   formatDateTime(isoUtc: string): string {
-  if (!isoUtc) return '';
-
-  const d = new Date(isoUtc); // "Z" => UTC, Date lo convierte a local automáticamente
-  return new Intl.DateTimeFormat('es-MX', {
-    dateStyle: 'medium',   // ej: 16 ene 2026
-    timeStyle: 'short',    // ej: 3:26 p. m.
-  }).format(d);
-}
-
+    if (!isoUtc) return '';
+    const d = new Date(isoUtc);
+    return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(d);
+  }
+  
 }

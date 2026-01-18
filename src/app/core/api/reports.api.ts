@@ -18,7 +18,7 @@ export interface DailyMovementsDto {
 }
 
 export interface TopMoverDto {
-  productId: number;
+  id: number;
   sku: string;
   name: string;
   qtyIn: number;
@@ -31,9 +31,13 @@ export interface StockRow {
   sku: string;
   name: string;
   unit: string;
-  minStock: number;
+
   stock: number;
-  isLow: boolean;
+
+  // opcionales (si luego los agregas en backend)
+  minStock?: number;
+  isLow?: boolean;
+
   isActive: boolean;
   branchId?: number;
   branchName?: string;
@@ -45,28 +49,36 @@ export class ReportsApi {
   private http = inject(HttpClient);
   private base = `${API_BASE_URL}/api/reports`;
 
-stock(includeInactive = false, branchId?: number | null): Observable<StockRow[]> {
-  const params: any = { includeInactive };
-  if (branchId !== undefined && branchId !== null) params.branchId = branchId;
-  return this.http.get<StockRow[]>(`${this.base}/stock`, { params });
-}
-
-
-  kardex(productId: number) {
-    return this.http.get(`${this.base}/kardex`, {
-      params: { productId }
-    });
+  stock(includeInactive = false, branchId?: number | null): Observable<StockRow[]> {
+    const params: any = { includeInactive };
+    if (branchId !== undefined && branchId !== null) params.branchId = branchId;
+    return this.http.get<StockRow[]>(`${this.base}/stock`, { params });
   }
 
-  overview(days = 30): Observable<OverviewDto> {
-    return this.http.get<OverviewDto>(`${this.base}/overview`, { params: { days } });
+  kardex(productId: number, branchId?: number | null) {
+    const params: any = { productId };
+    if (branchId !== undefined && branchId !== null) params.branchId = branchId;
+    return this.http.get(`${this.base}/kardex`, { params });
   }
 
-  daily(days = 30): Observable<DailyMovementsDto> {
-    return this.http.get<DailyMovementsDto>(`${this.base}/movements/daily`, { params: { days } });
+  // ✅ NUEVO: branchId opcional
+  overview(days = 30, branchId?: number | null): Observable<OverviewDto> {
+    const params: any = { days };
+    if (branchId !== undefined && branchId !== null) params.branchId = branchId;
+    return this.http.get<OverviewDto>(`${this.base}/overview`, { params });
   }
 
-  topMovers(days = 30, take = 10): Observable<TopMoverDto[]> {
-    return this.http.get<TopMoverDto[]>(`${this.base}/top-movers`, { params: { days, take } });
+  // ✅ NUEVO: branchId opcional
+  daily(days = 30, branchId?: number | null): Observable<DailyMovementsDto> {
+    const params: any = { days };
+    if (branchId !== undefined && branchId !== null) params.branchId = branchId;
+    return this.http.get<DailyMovementsDto>(`${this.base}/movements/daily`, { params });
+  }
+
+  // ✅ NUEVO: branchId opcional
+  topMovers(days = 30, take = 10, branchId?: number | null): Observable<TopMoverDto[]> {
+    const params: any = { days, take };
+    if (branchId !== undefined && branchId !== null) params.branchId = branchId;
+    return this.http.get<TopMoverDto[]>(`${this.base}/top-movers`, { params });
   }
 }

@@ -50,6 +50,35 @@ export class LoginComponent {
 
     this.auth.login(req).subscribe({
       next: () => {
+        // ================================
+        // ✅ PRUEBA TEMPORAL (multi-sucursal)
+        // ================================
+        // Si tu backend ya mete branchIds en el token pero NO los guardas en localStorage,
+        // esto forzará que tu SessionService.branches() ya vea más de una sucursal.
+        //
+        // OJO: Ajusta estos IDs/nombres a los reales que tú tengas.
+        // Si no tienes branchNames reales, igual funciona (solo UI).
+        try {
+          // Si ya existen, NO los pisamos. (para no romper sesiones reales)
+          const existingIds = localStorage.getItem('branchIds');
+          const existingNames = localStorage.getItem('branchNames');
+
+          if (!existingIds) {
+            // ejemplo: dos sucursales
+            localStorage.setItem('branchIds', JSON.stringify([1, 2]));
+          }
+          if (!existingNames) {
+            localStorage.setItem('branchNames', JSON.stringify(['Matriz', 'Sucursal 2']));
+          }
+
+          // si no hay activeBranchId, ponlo a la principal o a una válida
+          const active = Number(localStorage.getItem('activeBranchId') || 0) || 0;
+          if (!active) {
+            const primary = Number(localStorage.getItem('branchId') || 0) || 0;
+            localStorage.setItem('activeBranchId', String(primary > 0 ? primary : 1));
+          }
+        } catch {}
+
         this.loading = false;
         this.router.navigateByUrl('/home');
       },

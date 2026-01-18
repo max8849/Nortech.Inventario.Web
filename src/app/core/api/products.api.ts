@@ -39,9 +39,31 @@ export class ProductsApi {
 
   constructor(private http: HttpClient) {}
 
-  list(q: string = '', active: boolean = true): Observable<ProductRowDto[]> {
+  /**
+   * list:
+   * - Mantiene compatibilidad: (q, active) sigue funcionando igual.
+   * - Nuevo opcional: branchId (number | null | undefined)
+   *   - undefined => no manda parámetro (comportamiento actual)
+   *   - null => no manda parámetro (útil para Admin "Todas")
+   *   - number (>0) => manda branchId
+   */
+  list(
+    q: string = '',
+    active: boolean = true,
+    branchId?: number | null
+  ): Observable<ProductRowDto[]> {
     let params = new HttpParams().set('active', String(active));
+
     if (q?.trim()) params = params.set('q', q.trim());
+
+    // ✅ solo agrega branchId si viene válido (>0)
+    if (branchId != null) {
+      const n = Number(branchId);
+      if (Number.isFinite(n) && n > 0) {
+        params = params.set('branchId', String(n));
+      }
+    }
+
     return this.http.get<ProductRowDto[]>(this.base, { params });
   }
 

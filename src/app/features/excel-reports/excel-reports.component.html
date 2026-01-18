@@ -1,0 +1,94 @@
+<div class="page">
+  <div class="top">
+    <div class="titles">
+      <h1>Reportes Excel</h1>
+      <p class="muted">Descarga reportes listos para administración.</p>
+    </div>
+
+    <div class="controls">
+      <!-- Sucursal (Admin: todas/una) (Staff: solo permitidas) -->
+      <mat-form-field appearance="outline" class="branch" *ngIf="isAdmin || branches.length > 1">
+        <mat-label>Sucursal</mat-label>
+        <mat-select [(ngModel)]="selectedBranchId" (selectionChange)="onBranchChange()">
+          <mat-option *ngIf="isAdmin" [value]="0">Todas</mat-option>
+          <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Rangos -->
+      <mat-button-toggle-group class="range" [value]="range" (change)="setRange($event.value)">
+        <mat-button-toggle value="month">Mes</mat-button-toggle>
+        <mat-button-toggle value="prev-month">Mes ant.</mat-button-toggle>
+        <mat-button-toggle value="quin1">Quincena 1</mat-button-toggle>
+        <mat-button-toggle value="quin2">Quincena 2</mat-button-toggle>
+        <mat-button-toggle value="custom">Personal</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+  </div>
+
+  <div class="subline">
+    <span class="chip">
+      <mat-icon>store</mat-icon>
+      {{ branchLabel() }}
+    </span>
+    <span class="chip" *ngIf="range !== 'custom'">
+      <mat-icon>event</mat-icon>
+    {{ rangeLabel() }}
+    </span>
+    <span class="chip" *ngIf="range === 'custom' && from && to">
+      <mat-icon>date_range</mat-icon>
+      {{ from }} → {{ to }}
+    </span>
+  </div>
+
+  <!-- Custom dates -->
+  <div class="custom" *ngIf="range === 'custom'">
+    <mat-form-field appearance="outline">
+      <mat-label>Desde</mat-label>
+      <input matInput type="date" [(ngModel)]="from" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Hasta</mat-label>
+      <input matInput type="date" [(ngModel)]="to" />
+    </mat-form-field>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" *ngIf="loading">
+    <mat-spinner diameter="26"></mat-spinner>
+    <span>Cargando reportes...</span>
+  </div>
+
+  <!-- Cards -->
+  <div class="grid" *ngIf="!loading && catalog.length">
+    <mat-card appearance="outlined" class="card" *ngFor="let r of catalog">
+      <div class="card-top">
+        <div class="left">
+          <div class="title">{{ r.title }}</div>
+          <div class="desc muted">{{ r.description }}</div>
+
+          <div class="tags" *ngIf="r.tags?.length">
+            <span class="tag" *ngFor="let t of r.tags">{{ t }}</span>
+          </div>
+        </div>
+
+        <button
+          mat-raised-button
+          color="primary"
+          type="button"
+          (click)="download(r)"
+          [disabled]="downloadingKey === r.key"
+        >
+          <mat-icon>file_download</mat-icon>
+          <span *ngIf="downloadingKey !== r.key">Descargar</span>
+          <span *ngIf="downloadingKey === r.key">...</span>
+        </button>
+      </div>
+    </mat-card>
+  </div>
+
+  <div class="empty muted" *ngIf="!loading && catalog.length === 0">
+    No hay reportes disponibles.
+  </div>
+</div>

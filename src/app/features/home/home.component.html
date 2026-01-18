@@ -1,31 +1,95 @@
 <div class="page">
   <div class="topbar">
     <div>
-      <h1 class="title">Panel</h1>
+      <h1 class="title">Menú principal</h1>
       <p class="hint">Selecciona un módulo</p>
     </div>
   </div>
 
-  <div class="grid">
-<a
-  class="tile"
-  *ngFor="let t of tiles"
-  href=""
-  (click)="open(t, $event)"
->
-  <mat-card class="card" appearance="outlined">
-    <div class="card-inner">
-      <div class="icon">
-        <mat-icon>{{ t.icon }}</mat-icon>
+  <!-- OPERACIÓN -->
+  <div class="section" *ngIf="operationTiles.length > 0">
+    <div class="section-head">
+      <div class="section-title">
+        <mat-icon>play_circle</mat-icon>
+        Operación
       </div>
-
-      <div class="text">
-        <div class="card-title">{{ t.title }}</div>
-        <div class="card-subtitle">{{ t.subtitle }}</div>
-      </div>
+      <div class="section-sub">Acciones del día a día</div>
     </div>
-  </mat-card>
-</a>
 
+    <div class="grid">
+      <a class="tile" *ngFor="let t of operationTiles" href="" (click)="open(t, $event)">
+        <mat-card class="card" appearance="outlined">
+          <div class="card-inner">
+            <div class="icon">
+              <mat-icon>{{ t.icon }}</mat-icon>
+            </div>
+            <div class="text">
+<div class="card-title">
+  {{ t.title }}
+  <span class="badge" *ngIf="badgeFor(t) as b">{{ b }}</span>
+</div>
+              <div class="card-subtitle">{{ t.subtitle }}</div>
+            </div>
+          </div>
+        </mat-card>
+      </a>
+    </div>
+  </div>
+
+  <!-- CATALOGOS -->
+  <div class="section" *ngIf="catalogTiles.length > 0">
+    <div class="section-head">
+      <div class="section-title">
+        <mat-icon>folder</mat-icon>
+        Catálogos
+      </div>
+      <div class="section-sub">Configuración y administración</div>
+    </div>
+
+    <div class="grid">
+      <a class="tile" *ngFor="let t of catalogTiles" href="" (click)="open(t, $event)">
+        <mat-card class="card" appearance="outlined">
+          <div class="card-inner">
+            <div class="icon soft">
+              <mat-icon>{{ t.icon }}</mat-icon>
+            </div>
+            <div class="text">
+<div class="card-title">
+  {{ t.title }}
+  <span class="badge" *ngIf="badgeFor(t) as b">{{ b }}</span>
+</div>
+              <div class="card-subtitle">{{ t.subtitle }}</div>
+            </div>
+          </div>
+        </mat-card>
+      </a>
+    </div>
+  </div>
+
+  <!-- CUENTA -->
+  <div class="section" *ngIf="accountTiles.length > 0">
+    <div class="section-head">
+      <div class="section-title">
+        <mat-icon>person</mat-icon>
+        Cuenta
+      </div>
+      <div class="section-sub">Acciones de sesión</div>
+    </div>
+
+    <div class="grid one">
+      <a class="tile" *ngFor="let t of accountTiles" href="" (click)="open(t, $event)">
+        <mat-card class="card danger" appearance="outlined">
+          <div class="card-inner">
+            <div class="icon danger">
+              <mat-icon>{{ t.icon }}</mat-icon>
+            </div>
+            <div class="text">
+              <div class="card-title">{{ t.title }}</div>
+              <div class="card-subtitle">{{ t.subtitle }}</div>
+            </div>
+          </div>
+        </mat-card>
+      </a>
+    </div>
   </div>
 </div>

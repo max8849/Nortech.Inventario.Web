@@ -39,7 +39,9 @@ export class UserFormDialogComponent implements OnInit {
     fullName: '',
     role: 'Staff',
     password: '',
-    branchId: 0 // se setea al cargar
+    branchId: 0 ,
+    branchIds: [] 
+
   };
 
   constructor(
@@ -52,46 +54,64 @@ export class UserFormDialogComponent implements OnInit {
     this.loadBranches();
   }
 
-  private loadBranches(): void {
-    this.loadingBranches = true;
+private loadBranches(): void {
+  this.loadingBranches = true;
 
-    this.branchesApi.list()
-      .pipe(finalize(() => (this.loadingBranches = false)))
-      .subscribe({
-        next: (rows) => {
-          this.branches = rows.filter(x => x.isActive);
-          // default: Matriz si existe, si no el primero
-          const matriz = this.branches.find(b => b.name.toLowerCase() === 'matriz');
-          this.model.branchId = matriz?.id ?? (this.branches[0]?.id ?? 0);
-        },
-        error: (err) => {
-          console.error('Error cargando sucursales', err);
-          this.branches = [];
-          this.model.branchId = 0;
-        }
-      });
-  }
+  this.branchesApi.list()
+    .pipe(finalize(() => (this.loadingBranches = false)))
+    .subscribe({
+      next: (rows) => {
+        this.branches = (rows || []).filter(x => x.isActive);
+
+        const matriz = this.branches.find(b => b.name.toLowerCase() === 'matriz');
+        this.model.branchId = matriz?.id ?? (this.branches[0]?.id ?? 0);
+
+        // ✅ por defecto: acceso incluye principal
+        this.model.branchIds = this.model.branchId ? [this.model.branchId] : [];
+      },
+      error: (err) => {
+        console.error('Error cargando sucursales', err);
+        this.branches = [];
+        this.model.branchId = 0;
+        this.model.branchIds = [];
+      }
+    });
+}
 
   cancel(): void {
     this.ref.close(false);
   }
 
-  save(): void {
-    if (!this.model.username.trim() || !this.model.fullName.trim() || !this.model.password.trim()) return;
-    if (!this.model.branchId || this.model.branchId <= 0) return;
+save(): void {
+  if (!this.model.username.trim() || !this.model.fullName.trim() || !this.model.password.trim()) return;
+  if (!this.model.branchId || this.model.branchId <= 0) return;
 
-    this.saving = true;
-    this.api.create(this.model)
-      .pipe(finalize(() => (this.saving = false)))
-      .subscribe({
-        next: () => this.ref.close(true),
-        error: (err) => {
-          console.error(err);
-        }
-      });
-  }
+  // ✅ regla: siempre incluir principal
+  this.syncBranchIdsFromMain();
+
+  if (!this.model.branchIds || this.model.branchIds.length === 0)
+    this.model.branchIds = [this.model.branchId];
+
+  this.saving = true;
+  this.api.create(this.model)
+    .pipe(finalize(() => (this.saving = false)))
+    .subscribe({
+      next: () => this.ref.close(true),
+      error: (err) => console.error(err)
+    });
+}
 
   roleLabel(r: UserRole): string {
     return r === 'Admin' ? 'Admin' : 'Operador';
   }
+
+  // ✅ asegura que branchIds siempre incluya la principal
+syncBranchIdsFromMain(): void {
+  const main = this.model.branchId;
+  if (!main || main <= 0) return;
+
+  const set = new Set<number>(this.model.branchIds || []);
+  set.add(main);
+  this.model.branchIds = Array.from(set);
+}
 }

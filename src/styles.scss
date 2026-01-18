@@ -1,4 +1,93 @@
-/* You can add global styles to this file, and also import other style files */
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+$nt-typography: mat.m2-define-typography-config(
+  $font-family: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif'
+);
+
+// Esto hace que TODOS los componentes Material usen esa fuente
+@include mat.all-component-typographies($nt-typography);
+
+// Y esto fuerza el resto del sitio
+html, body {
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+/* ===== Paletas M2 (turquesa + petróleo) ===== */
+$primary: mat.m2-define-palette(mat.$m2-teal-palette, 500, 300, 700);
+$accent:  mat.m2-define-palette(mat.$m2-blue-gray-palette, 900, 700, 900);
+$warn:    mat.m2-define-palette(mat.$m2-red-palette);
+
+/* ===== Themes ===== */
+$light-theme: mat.m2-define-light-theme((
+  color: (primary: $primary, accent: $accent, warn: $warn)
+));
+
+$dark-theme: mat.m2-define-dark-theme((
+  color: (primary: $primary, accent: $accent, warn: $warn)
+));
+
+/* Claro por defecto */
+@include mat.all-component-themes($light-theme);
+
+/* Oscuro con clase */
+body.dark-theme {
+  @include mat.all-component-colors($dark-theme);
+  color-scheme: dark;
+}
+/* ===== FONDOS FIJOS (se sienta SaaS) ===== */
+:root {
+  color-scheme: light;
+
+  --app-bg: #F5F7FB;
+  --app-surface: #FFFFFF;
+  --app-text: #0E1726;
+  --app-border: rgba(0, 0, 0, 0.10);
+}
 
 html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+body.dark-theme {
+  color-scheme: dark;
+
+  --app-bg: #0B1220;
+  --app-surface: #111A2E;
+  --app-text: #EAF2FF;
+  --app-border: rgba(255, 255, 255, 0.12);
+}
+
+/* Superficies (cards/panels) */
+.mat-mdc-card,
+.mdc-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+}
+
+/* Tablas más pro */
+.mat-mdc-table {
+  background: var(--app-surface);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.mat-mdc-row:hover { filter: brightness(0.98); }
+body.dark-theme .mat-mdc-row:hover { filter: brightness(1.06); }
+/* ===========================
+   Global: iconos blancos en controles de cantidad (.qty)
+   Sin fondo
+   =========================== */
+.qty button[mat-icon-button] mat-icon,
+.qty button.mat-mdc-icon-button mat-icon {
+  color: #fff !important;
+}
+
+/* opcional: también el ripple/estado del botón (por si se ve gris) */
+.qty button[mat-icon-button],
+.qty button.mat-mdc-icon-button {
+  color: #fff !important; /* por si el icon hereda */
+}

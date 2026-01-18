@@ -1,8 +1,211 @@
-.wrap { padding: 14px; }
-.top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap: wrap; }
-.muted { margin: 4px 0 0; opacity: .7; }
-.actions { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
-.filters { margin-top: 10px; display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
-.loading { display:flex; gap:10px; align-items:center; opacity: .85; }
-.empty { padding: 14px 2px; opacity: .7; }
-.pill { padding: 4px 10px; border-radius: 999px; background: rgba(0,0,0,.06); }
+.wrap {
+  padding: 14px;
+  border-radius: 14px;
+}
+
+/* Top */
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: .2px;
+  }
+
+  .muted {
+    margin: 6px 0 0;
+    opacity: .72;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Filters */
+.filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.f {
+  width: 220px;
+  max-width: 100%;
+}
+
+/* Loading */
+.loading {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+/* ===== Desktop table: igual que Stock ===== */
+.desktopOnly {
+  display: block;
+}
+
+.table {
+  width: 100%;
+  margin-top: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* encabezado resaltado */
+.table tr.mat-header-row {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.table th.mat-header-cell {
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+/* filas más "touch friendly" */
+.table td.mat-cell {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+/* acciones */
+.rowActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* ===== Estado: chips con color como Stock ===== */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  user-select: none;
+  font-size: 12px;
+  letter-spacing: .2px;
+}
+
+/* Creado (azul) */
+.pill.created {
+  color: #0d47a1;
+  border-color: rgba(33, 150, 243, 0.35);
+  background: rgba(33, 150, 243, 0.16);
+}
+
+/* En camino (naranja) */
+.pill.transit {
+  color: #e65100;
+  border-color: rgba(255, 152, 0, 0.40);
+  background: rgba(255, 152, 0, 0.18);
+}
+
+/* Confirmado (verde) */
+.pill.confirmed {
+  color: #1b5e20;
+  border-color: rgba(76, 175, 80, 0.35);
+  background: rgba(76, 175, 80, 0.16);
+}
+
+/* Cancelado (rojo) */
+.pill.cancelled {
+  color: #b71c1c;
+  border-color: rgba(244, 67, 54, 0.35);
+  background: rgba(244, 67, 54, 0.14);
+}
+
+/* Si tienes otro estatus/por defecto */
+.pill.unknown {
+  color: rgba(0, 0, 0, .75);
+  border-color: rgba(0, 0, 0, .18);
+  background: rgba(0, 0, 0, .06);
+}
+
+/* ===== Mobile cards: igual de legible que Stock ===== */
+.mobileOnly {
+  display: none;
+}
+
+.cards {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.card {
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.id {
+  font-weight: 900;
+  line-height: 1.2;
+  font-size: 15px;
+}
+
+.meta {
+  opacity: .75;
+  font-size: 13px;
+  display: grid;
+  gap: 2px;
+}
+
+.cardBody {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.cardActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Empty */
+.empty {
+  margin-top: 14px;
+  opacity: .72;
+}
+
+/* Responsive helpers */
+@media (max-width: 760px) {
+  .desktopOnly { display: none; }
+  .mobileOnly { display: block; }
+
+  /* en móvil, que los filtros/botones se acomoden mejor */
+  .filters { gap: 10px; }
+  .actions { gap: 8px; }
+
+  .f {
+    width: 100%;
+  }
+
+  .table {
+    display: none; /* por si acaso */
+  }
+}

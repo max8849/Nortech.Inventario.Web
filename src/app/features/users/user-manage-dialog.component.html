@@ -1,0 +1,85 @@
+<h2 mat-dialog-title class="title">Administrar usuario</h2>
+
+<div mat-dialog-content class="content">
+  <div class="head">
+    <div class="who">
+      <div class="name">{{ user.fullName }}</div>
+      <div class="muted"><span class="at">&#64;</span>{{ user.username }} • ID {{ user.id }}</div>
+      <div class="muted small">
+        Principal: <b>{{ user.branchName || ('#' + user.branchId) }}</b> • Rol: <b>{{ user.role }}</b>
+      </div>
+    </div>
+  </div>
+
+  <mat-divider></mat-divider>
+
+  <div class="loading" *ngIf="loadingBranches">
+    <mat-spinner diameter="22"></mat-spinner>
+    <span>Cargando sucursales...</span>
+  </div>
+
+  <ng-container *ngIf="!loadingBranches">
+    <mat-card appearance="outlined" class="block">
+      <div class="bTop">
+        <div>
+          <div class="bTitle">Sucursales permitidas</div>
+          <div class="muted small">La sucursal principal no se puede quitar.</div>
+        </div>
+
+        <button mat-raised-button color="primary" type="button" (click)="saveBranches()" [disabled]="savingBranches">
+          <mat-icon>save</mat-icon>
+          Guardar
+        </button>
+      </div>
+
+      <div class="bGrid">
+        <label class="bRow" *ngFor="let b of branches">
+          <mat-checkbox
+            [checked]="isChecked(b.id)"
+            [disabled]="isPrimary(b.id)"
+            (change)="toggleBranch(b.id, $event.checked)">
+          </mat-checkbox>
+
+          <div class="bInfo">
+            <div class="bName">
+              {{ b.name }}
+              <span class="badge" *ngIf="isPrimary(b.id)">Principal</span>
+            </div>
+            <div class="muted small">ID: {{ b.id }}</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="saving" *ngIf="savingBranches">
+        <mat-spinner diameter="18"></mat-spinner>
+        <span>Guardando...</span>
+      </div>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="block">
+      <div class="bTitle">Seguridad</div>
+      <div class="muted small">Resetear contraseña (mínimo 6 caracteres).</div>
+
+      <div class="passRow">
+        <mat-form-field appearance="outline" class="pass">
+          <mat-label>Nueva contraseña</mat-label>
+          <input matInput [(ngModel)]="newPass" type="password" />
+        </mat-form-field>
+
+        <button mat-stroked-button type="button" (click)="resetPassword()" [disabled]="savingPassword">
+          <mat-icon>lock_reset</mat-icon>
+          Cambiar
+        </button>
+      </div>
+
+      <div class="saving" *ngIf="savingPassword">
+        <mat-spinner diameter="18"></mat-spinner>
+        <span>Guardando...</span>
+      </div>
+    </mat-card>
+  </ng-container>
+</div>
+
+<div mat-dialog-actions align="end">
+  <button mat-stroked-button type="button" (click)="close()">Cerrar</button>
+</div>

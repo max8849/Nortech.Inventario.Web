@@ -9,6 +9,7 @@ export interface MovementItemCreate {
 }
 
 export interface MovementCreate {
+  branchId: number;   
   type: MovementType;
   note?: string | null;
   items: MovementItemCreate[];

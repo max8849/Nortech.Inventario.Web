@@ -1,25 +1,38 @@
 <div class="page">
-  <div class="top">
-    <div>
-      <h1>Registrar movimiento</h1>
-      <p class="muted">Marca productos, define entrada/salida y cantidad.</p>
-    </div>
-
-    <button mat-stroked-button routerLink="/stock">
-     Ver inventario
-    </button>
+<div class="top">
+  <div>
+    <h1>Registrar movimiento</h1>
+    <p class="muted">Marca productos, define entrada/salida y cantidad.</p>
   </div>
+
+  <div class="top-actions">
+    <mat-form-field *ngIf="canChooseBranch" appearance="outline" class="branch">
+      <mat-label>Sucursal</mat-label>
+      <mat-select [(ngModel)]="branchId" (selectionChange)="onBranchChange($event.value)">
+        <!-- Admin: opción Todas (solo para ver/listar, no para guardar) -->
+        <mat-option *ngIf="isAdmin" [value]="0">Todas</mat-option>
+
+        <mat-option *ngFor="let b of branches" [value]="b.id">
+          {{ b.name }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-stroked-button routerLink="/stock">Ver inventario</button>
+  </div>
+</div>
+
 
   <mat-card class="card" appearance="outlined">
     <div class="controls">
       <mat-form-field appearance="outline" class="search">
         <mat-label>Buscar</mat-label>
-        <input matInput [(ngModel)]="q" (input)="applyFilter()" placeholder="SKU o nombre" />
+        <input matInput [(ngModel)]="q" (input)="applyFilter()" />
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="note">
         <mat-label>Notas (opcional)</mat-label>
-        <input matInput [(ngModel)]="note" placeholder="Ej. recepción proveedor / salida a producción" />
+        <input matInput [(ngModel)]="note"  />
       </mat-form-field>
     </div>
 

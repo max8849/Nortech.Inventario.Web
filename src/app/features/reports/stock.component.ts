@@ -18,8 +18,9 @@ import * as XLSX from 'xlsx';
 
 import { BranchesApi } from '../../core/api/branches.api';
 import { ReportsApi, StockRow } from '../../core/api/reports.api';
+import { SessionService, BranchLite } from '../../core/session/session.service'; // ajusta ruta si difiere
 
-type BranchOpt = { id: number; name: string; isActive: boolean };
+type BranchOpt = { id: number; name: string; isActive?: boolean };
 
 @Component({
   selector: 'app-stock',
@@ -42,26 +43,29 @@ type BranchOpt = { id: number; name: string; isActive: boolean };
 })
 export class StockComponent implements OnInit, AfterViewInit {
   loading = false;
-
   q = '';
 
-  isAdmin = ((localStorage.getItem('role') || '').toLowerCase() === 'admin');
+  isAdmin = false;
+
+  // para Admin: 0 = todas
   selectedBranchId = 0;
 
   branches: BranchOpt[] = [];
 
-  displayedColumns: string[] = ['sku', 'name', 'unit', 'stock', 'minStock', 'status'];
-
+displayedColumns: string[] = ['name', 'unit', 'stock', 'status'];
   dataSource = new MatTableDataSource<StockRow>([]);
 
   @ViewChild(MatSort) sort?: MatSort;
 
   constructor(
     private reports: ReportsApi,
-    private branchesApi: BranchesApi
+    private branchesApi: BranchesApi,
+    private session: SessionService
   ) {}
 
   ngOnInit(): void {
+    this.isAdmin = this.session.isAdmin(); // ✅ aquí se llama
+
     this.setColumns();
 
     // ✅ filtro: SKU / nombre / sucursal
@@ -76,13 +80,10 @@ export class StockComponent implements OnInit, AfterViewInit {
       );
     };
 
-    // ✅ sorting: números como números, texto como texto
     this.dataSource.sortingDataAccessor = (item: any, property: string) => {
       switch (property) {
         case 'stock':
           return Number(item.stock ?? 0);
-        case 'minStock':
-          return Number(item.minStock ?? 0);
         case 'branch':
           return (item.branchName ?? '').toString().toLowerCase();
         case 'sku':
@@ -96,64 +97,99 @@ export class StockComponent implements OnInit, AfterViewInit {
       }
     };
 
-    // ✅ cargar sucursales solo admin (controller es Admin-only)
+    this.loadBranchesThenData();
+  }
+
+  ngAfterViewInit(): void {
+    if (this.sort) this.dataSource.sort = this.sort;
+  }
+
+private setColumns(): void {
+  const showBranch = this.isAdmin && this.selectedBranchId === 0;
+  this.displayedColumns = showBranch
+    ? ['branch', 'name', 'unit', 'stock', 'status']
+    : ['name', 'unit', 'stock', 'status'];
+}
+
+  private loadBranchesThenData(): void {
     if (this.isAdmin) {
+      // Admin: cargar todas (activas)
       this.branchesApi.list().subscribe({
         next: (bs: any[]) => {
-          this.branches = bs
-            .map(x => ({
+          this.branches = (bs || [])
+            .map((x: any) => ({
               id: x.id ?? x.Id,
               name: x.name ?? x.Name,
               isActive: x.isActive ?? x.IsActive
             }))
-            .filter(b => b.isActive);
+            .filter((b: BranchOpt) => !!b.isActive);
+
+          // default: "Todas"
+          this.selectedBranchId = 0;
+          this.setColumns();
+          this.load();
         },
-        error: (e) => console.error('No se pudieron cargar sucursales', e)
+        error: (e) => {
+          console.error('No se pudieron cargar sucursales', e);
+          this.branches = [];
+          this.selectedBranchId = 0;
+          this.setColumns();
+          this.load();
+        }
       });
+
+      return;
     }
 
+    // Staff: sucursales desde session
+    const staffBranches: BranchLite[] = this.session.branches();
+    this.branches = staffBranches.map((b: BranchLite) => ({ id: b.id, name: b.name, isActive: true }));
+
+    // default: sucursal activa del session
+    this.selectedBranchId = this.session.activeBranchId();
+    if (!this.selectedBranchId && this.branches.length > 0) {
+      this.selectedBranchId = this.branches[0].id;
+      this.session.setActiveBranchId(this.selectedBranchId);
+    }
+
+    this.setColumns();
     this.load();
   }
 
-  ngAfterViewInit(): void {
-    // si la tabla está detrás de *ngIf, a veces el sort aún no existe
-    // lo conectamos aquí y también lo re-conectamos en load() con setTimeout
-    if (this.sort) this.dataSource.sort = this.sort;
-  }
+  onBranchChange(): void {
+    // Staff: persistir sucursal activa
+    if (!this.isAdmin) {
+      this.session.setActiveBranchId(this.selectedBranchId);
+    }
 
-  private setColumns(): void {
-    // Admin + Todas => muestra columna Sucursal
-    this.displayedColumns = (this.isAdmin && this.selectedBranchId === 0)
-      ? ['branch', 'name', 'stock', 'minStock', 'status']
-      : ['name', 'stock', 'minStock', 'status'];
+    this.setColumns();
+    this.load();
   }
 
   load(): void {
     this.loading = true;
 
-    const branchId = this.isAdmin ? this.selectedBranchId : undefined;
+    // branchId param para API:
+    // Admin => 0 => null (todas); >0 => esa
+    // Staff => siempre su branch seleccionada
+    const branchIdParam: number | null =
+      this.isAdmin ? (this.selectedBranchId > 0 ? this.selectedBranchId : null)
+                   : (this.selectedBranchId > 0 ? this.selectedBranchId : this.session.activeBranchId());
 
-    this.reports.stock(false, branchId)
+    this.reports.stock(false, branchIdParam)
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: (data: StockRow[]) => {
-          this.dataSource.data = data;
+          this.dataSource.data = data ?? [];
 
-          // 🔥 importante: si hay *ngIf, el MatSort puede “re-crearse”
           setTimeout(() => {
             if (this.sort) this.dataSource.sort = this.sort;
           });
 
           this.applyFilter();
-          this.setColumns();
         },
         error: (err) => console.error(err)
       });
-  }
-
-  onBranchChange(): void {
-    this.setColumns();
-    this.load();
   }
 
   applyFilter(): void {
@@ -164,29 +200,34 @@ export class StockComponent implements OnInit, AfterViewInit {
     return this.dataSource.filteredData;
   }
 
-  exportExcel(): void {
-    const data = this.filtered.map((r: any) => ({
-      ...(this.isAdmin ? { Sucursal: r.branchName ?? '' } : {}),
-      SKU: r.sku,
-      Producto: r.name,
-      Unidad: r.unit,
-      Stock: r.stock,
-      'Stock mínimo': r.minStock,
-      Estado: r.isLow ? 'BAJO' : 'OK'
-    }));
+exportExcel(): void {
+  const showBranchCol = this.isAdmin && this.selectedBranchId === 0;
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Stock');
+  const data = this.filtered.map((r: any) => ({
 
-    const branchLabel =
-      !this.isAdmin
-        ? (localStorage.getItem('branchName') || 'Sucursal')
-        : this.selectedBranchId === 0
+    ...(showBranchCol ? { Sucursal: r.branchName ?? '' } : {}),
+
+    // ✅ sin SKU
+    Producto: r.name,
+    Unidad: r.unit,
+    Stock: r.stock,
+    Estado: (Number(r.stock ?? 0) <= 0) ? 'SIN STOCK' : 'OK'
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Stock');
+
+  const branchLabel =
+    this.isAdmin
+      ? (this.selectedBranchId === 0
           ? 'Todas'
-          : (this.branches.find(b => b.id === this.selectedBranchId)?.name || 'Sucursal');
+          : (this.branches.find(b => b.id === this.selectedBranchId)?.name || 'Sucursal'))
+      : (this.branches.find(b => b.id === this.selectedBranchId)?.name
+          || this.session.primaryBranchName()
+          || 'Sucursal');
 
-    const date = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `Stock_${branchLabel}_${date}.xlsx`);
-  }
+  const date = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `Stock_${branchLabel}_${date}.xlsx`);
+}
 }

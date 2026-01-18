@@ -1,0 +1,195 @@
+<mat-card appearance="outlined" class="wrap">
+
+  <!-- Header -->
+  <div class="top">
+    <div>
+      <h2>Nuevo pedido</h2>
+      <p class="muted">Agrega rápido lo que hace falta.</p>
+    </div>
+
+    <div class="actions">
+      <button mat-stroked-button type="button" (click)="back()">
+        <mat-icon>arrow_back</mat-icon>
+        Volver
+      </button>
+
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        (click)="save()"
+        [disabled]="saving || items.length === 0 || branchId <= 0"
+      >
+        <mat-icon>save</mat-icon>
+        Guardar
+      </button>
+    </div>
+  </div>
+
+  <!-- Branch + Note -->
+  <div class="loadingLine" *ngIf="loadingBranches">
+    <mat-spinner diameter="22"></mat-spinner>
+    <span>Cargando sucursales...</span>
+  </div>
+
+  <div class="form" *ngIf="!loadingBranches">
+    <mat-form-field appearance="outline" class="f" *ngIf="branches.length > 0">
+      <mat-label>Sucursal</mat-label>
+      <mat-select [(ngModel)]="branchId" (selectionChange)="onBranchChange()">
+        <mat-option *ngFor="let b of branches" [value]="b.id">{{ b.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="f">
+      <mat-label>Nota (opcional)</mat-label>
+      <input matInput [(ngModel)]="note" placeholder="Ej: faltó jabón..." />
+    </mat-form-field>
+  </div>
+
+  <mat-divider style="margin: 10px 0;"></mat-divider>
+
+  <!-- Loading products -->
+  <div class="loadingLine" *ngIf="loadingProducts">
+    <mat-spinner diameter="22"></mat-spinner>
+    <span>Cargando productos...</span>
+  </div>
+
+  <ng-container *ngIf="!loadingProducts">
+
+    <!-- Mobile tabs -->
+    <div class="mobileTabs">
+      <button
+        mat-stroked-button
+        type="button"
+        [class.active]="activeTab === 'products'"
+        (click)="activeTab = 'products'"
+      >
+        Productos
+      </button>
+
+      <button
+        mat-stroked-button
+        type="button"
+        [class.active]="activeTab === 'cart'"
+        (click)="activeTab = 'cart'"
+      >
+        Pedido ({{ items.length }})
+      </button>
+    </div>
+
+    <!-- Split layout -->
+    <div class="split">
+
+      <!-- LEFT: Products -->
+      <div class="pane left" [class.hideOnMobile]="activeTab !== 'products'">
+
+<div class="searchRow" *ngIf="products.length > 0">
+  <mat-form-field appearance="outline" class="search">
+    <mat-label>Buscar</mat-label>
+    <input matInput [(ngModel)]="q" (input)="applyFilter()"/>
+  </mat-form-field>
+</div>
+
+        <div class="muted" *ngIf="products.length === 0">No hay productos.</div>
+
+  <div class="plist" *ngIf="filtered.length > 0">
+  <button type="button" class="pRow" *ngFor="let p of filtered" (click)="addQuick(p.id)">
+    <div class="pMain">
+      <div class="pName">{{ p.name }}</div>
+
+      <div class="pMeta">
+        <span class="unit">{{ p.unit }}</span>
+
+        <span class="dot" *ngIf="p.sectionName">•</span>
+
+        <span class="sec" *ngIf="p.sectionName">
+          {{ p.sectionName }}
+        </span>
+      </div>
+    </div>
+
+    <div class="pAdd">
+      <mat-icon>add</mat-icon>
+    </div>
+  </button>
+</div>
+
+<div class="muted" *ngIf="filtered.length === 0">
+  No hay productos.
+</div>
+
+
+        <div class="muted" *ngIf="products.length > 0 && filteredProducts.length === 0">
+          No hay coincidencias.
+        </div>
+      </div>
+
+      <!-- RIGHT: Cart -->
+      <div class="pane right" [class.hideOnMobile]="activeTab !== 'cart'">
+
+        <div class="cartHead">
+          <div>
+            <div class="cartTitle">Tu pedido</div>
+            <div class="muted small">{{ items.length }} producto(s)</div>
+          </div>
+
+          <button mat-stroked-button type="button" class="clearBtn" (click)="clearAll()" [disabled]="items.length === 0">
+            <mat-icon>delete_sweep</mat-icon>
+            Limpiar
+          </button>
+        </div>
+
+        <div class="emptyCart muted" *ngIf="items.length === 0">
+          Agrega productos para verlos aquí.
+        </div>
+
+        <div class="cartList" *ngIf="items.length > 0">
+          <div class="cRow" *ngFor="let it of items">
+            <div class="cText">
+              <div class="cName">{{ it.name }}</div>
+              <div class="cUnit muted">{{ productUnit(it.productId) }}</div>
+            </div>
+
+            <div class="iTitle">{{ it.name }}</div>
+            <div class="iSub">
+              <span class="unit">{{ it.unit }}</span>
+              <span class="dot" *ngIf="it.sectionName">•</span>
+              <span class="sec" *ngIf="it.sectionName">{{ it.sectionName }}</span>
+            </div>
+
+
+            <div class="cCtrls">
+              <button mat-stroked-button type="button" class="ctrBtn" (click)="dec(it.productId)">
+                <mat-icon>remove</mat-icon>
+              </button>
+
+              <input
+                class="ctrInput"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                [value]="it.quantityRequested"
+                (input)="setQty(it.productId, $any($event.target).value)"
+              />
+
+              <button mat-stroked-button type="button" class="ctrBtn" (click)="inc(it.productId)">
+                <mat-icon>add</mat-icon>
+              </button>
+
+              <button mat-icon-button type="button" class="rm" (click)="removeItem(it.productId)" aria-label="Quitar">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="loadingLine" *ngIf="saving">
+          <mat-spinner diameter="18"></mat-spinner>
+          <span>Guardando...</span>
+        </div>
+
+      </div>
+
+    </div>
+  </ng-container>
+</mat-card>

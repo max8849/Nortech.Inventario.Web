@@ -1,2 +1,256 @@
-table { width: 100%; }
-.low { font-weight: 700; color: #b00020; }
+/* stock.component.scss */
+
+/* ===== Page ===== */
+.page {
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+/* ===== Toolbar (filtros + acciones) ===== */
+.toolbar {
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.02);
+  display: grid;
+  gap: 10px;
+}
+
+body.dark-theme .toolbar {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.toolbar-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Row 1 */
+.filters {
+  align-items: flex-end;
+}
+
+.search {
+  flex: 1 1 320px;
+  min-width: 220px;
+}
+
+.branch {
+  width: 240px;
+  max-width: 100%;
+}
+
+/* Row 2 */
+.actions {
+  justify-content: flex-start;
+}
+
+.actions button {
+  white-space: nowrap;
+}
+
+/* Loading inline “chip” */
+.loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: rgba(0, 0, 0, 0.03);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+body.dark-theme .loading-inline {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ===== Table ===== */
+table {
+  width: 100%;
+}
+
+/* Wrapper para que en pantallas pequeñas no se rompa */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+}
+
+/* Tabla */
+.stock-table {
+  min-width: 640px; /* fuerza scroll horizontal en celular en vez de romper */
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.header-row {
+  /* encabezado resaltado */
+  background: rgba(0, 0, 0, 0.06);
+}
+
+body.dark-theme .header-row {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.th {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.data-row td {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+/* Texto de nombre: más legible */
+.cell-name {
+  font-weight: 600;
+  max-width: 360px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* stock resaltado */
+.cell-stock {
+  font-weight: 700;
+}
+
+/* Chips estado */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  user-select: none;
+}
+
+.chip-ok {
+  color: #1b5e20;
+  border-color: rgba(76, 175, 80, 0.35);
+  background: rgba(76, 175, 80, 0.16);
+}
+
+.chip-bad {
+  color: #b71c1c;
+  border-color: rgba(244, 67, 54, 0.35);
+  background: rgba(244, 67, 54, 0.14);
+}
+
+/* Empty state */
+.empty {
+  padding: 16px;
+  opacity: 0.75;
+}
+
+/* ===== Mobile: Cards ===== */
+.mobile-cards {
+  display: none; /* se activa en @media */
+  gap: 12px;
+}
+
+.card-row {
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+}
+
+body.dark-theme .card-row {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  font-weight: 800;
+  line-height: 1.2;
+  font-size: 15px;
+}
+
+.meta {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+.kv {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.k {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.v {
+  font-weight: 700;
+}
+
+/* ===== Responsive ===== */
+
+/* Mobile: filtros en columna y botones full width */
+@media (max-width: 720px) {
+  .toolbar {
+    padding: 10px;
+  }
+
+  .toolbar-row {
+    gap: 8px;
+  }
+
+  .filters {
+    display: grid;
+    gap: 8px;
+  }
+
+  .search,
+  .branch {
+    width: 100%;
+    flex: unset;
+  }
+
+  .actions {
+    display: grid;
+    gap: 8px;
+  }
+
+  .actions button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .loading-inline {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* En móvil: ocultar tabla y mostrar cards */
+  .table-wrap {
+    display: none;
+  }
+
+  .mobile-cards {
+    display: grid;
+  }
+}

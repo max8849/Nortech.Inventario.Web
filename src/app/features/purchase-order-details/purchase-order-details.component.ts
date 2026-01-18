@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -15,42 +15,51 @@ import { MatInputModule } from '@angular/material/input';
 
 import { PurchaseOrdersApi } from '../../core/api/purchase-orders.api';
 import { API_BASE_URL } from '../../core/config/api.config';
+import { SessionService } from '../../core/session/session.service'; // ajusta ruta si difiere
 
 type PoItem = {
-  id: number;            // itemId
+  id: number;
   productId: number;
   sku: string;
   name: string;
   unit: string;
   quantityOrdered: number;
+  quantityShipped: number;   // ✅ nuevo
   quantityReceived: number;
   unitCost: number;
 };
 
+type PendingPreview = {
+  name: string;
+  size: number;
+  isImage: boolean;
+  url: string;
+};
+
 type EvidenceDto = {
-  id: number;
+  id?: number;
   fileName: string;
-  contentType: string;
+  contentType?: string;
   sizeBytes: number;
   uploadedAtUtc: string;
-  url: string; // "/uploads/..."
+  url: string;
 };
 
 type PoDetail = {
   id: number;
-  status: any;           // number o string
+  status: any;
   branchId: number;
   branchName: string;
   note?: string | null;
+  shipNote?: string | null;     // ✅ opcional (si decides guardarla en back)
   receiveNote?: string | null;
   createdAtUtc: string;
-  receivedAtUtc?: string | null;
+  confirmedAtUtc?: string | null; // ✅ (back usa ReceivedAtUtc como ConfirmedAtUtc)
   items: PoItem[];
-
-  // ✅ OJO: en el HTML que te pasé lo uso como "evidence"
   evidence?: EvidenceDto[];
 };
 
+type ShipItemDto = { itemId: number; quantityShipped: number };
 type ReceiveItemDto = { itemId: number; quantityReceived: number };
 
 @Component({
@@ -73,30 +82,45 @@ type ReceiveItemDto = { itemId: number; quantityReceived: number };
   styleUrls: ['./purchase-order-details.component.scss']
 })
 export class PurchaseOrderDetailsComponent implements OnInit {
+  @ViewChild('evidenceInput') evidenceInput?: ElementRef<HTMLInputElement>;
+
   loading = false;
   saving = false;
 
   // evidencia
   evidenceUploading = false;
   selectedFiles: File[] = [];
-
-  isAdmin = ((localStorage.getItem('role') || '').toLowerCase() === 'admin');
+  pendingPreviews: PendingPreview[] = [];
 
   id = 0;
   po: PoDetail | null = null;
 
-  receiveMode = false;
+  // roles
+  isAdmin = false;
+
+  // modos
+  shipMode = false;      // ✅ admin ajusta enviado
+  receiveMode = false;   // ✅ staff ajusta recibido
+
+  // maps
+  shippedMap: Record<number, number> = {};
   receivedMap: Record<number, number> = {};
+
+  // notas
+  shipNote = '';
   receiveNote = '';
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private api: PurchaseOrdersApi,
-    private snack: MatSnackBar
+    private snack: MatSnackBar,
+    private session: SessionService
   ) {}
 
   ngOnInit(): void {
+    this.isAdmin = this.session.isAdmin();
+
     this.id = Number(this.route.snapshot.paramMap.get('id') || 0);
     if (!this.id) {
       this.router.navigateByUrl('/purchase-orders');
@@ -105,6 +129,50 @@ export class PurchaseOrderDetailsComponent implements OnInit {
     this.load();
   }
 
+  // ===== Status helpers =====
+  private statusNumber(): number | null {
+    const s = this.po?.status;
+    if (s == null) return null;
+    if (typeof s === 'number') return s;
+
+    const v = String(s).toLowerCase().trim();
+    if (v === '1' || v.includes('created')) return 1;
+    if (v === '2' || v.includes('intransit') || v.includes('transit')) return 2;
+    if (v === '3' || v.includes('confirmed')) return 3;
+    if (v === '4' || v.includes('cancel')) return 4;
+    return null;
+  }
+
+  isCreated(): boolean { return this.statusNumber() === 1; }
+  isInTransit(): boolean { return this.statusNumber() === 2; }
+  isConfirmed(): boolean { return this.statusNumber() === 3; }
+  isCancelled(): boolean { return this.statusNumber() === 4; }
+
+  statusLabel(): string {
+    const n = this.statusNumber();
+    if (n === 1) return 'CREADA';
+    if (n === 2) return 'EN CAMINO';
+    if (n === 3) return 'CONFIRMADA';
+    if (n === 4) return 'CANCELADA';
+    return String(this.po?.status ?? '');
+  }
+
+  statusClass(): string {
+    const n = this.statusNumber();
+    if (n === 1) return 'created';
+    if (n === 2) return 'transit';
+    if (n === 3) return 'confirmed';
+    if (n === 4) return 'cancelled';
+    return 'unknown';
+  }
+
+  formatDateTime(isoUtc?: string | null): string {
+    if (!isoUtc) return '';
+    const d = new Date(isoUtc);
+    return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(d);
+  }
+
+  // ===== Load =====
   load(): void {
     this.loading = true;
 
@@ -119,12 +187,12 @@ export class PurchaseOrderDetailsComponent implements OnInit {
             name: x.name ?? x.Name,
             unit: x.unit ?? x.Unit,
             quantityOrdered: Number(x.quantityOrdered ?? x.QuantityOrdered ?? 0),
+            quantityShipped: Number(x.quantityShipped ?? x.QuantityShipped ?? 0), // ✅
             quantityReceived: Number(x.quantityReceived ?? x.QuantityReceived ?? 0),
             unitCost: Number(x.unitCost ?? x.UnitCost ?? 0),
           })) as PoItem[];
 
           const evidence = (data.evidence || data.Evidence || data.evidences || data.Evidences || []).map((e: any) => ({
-            id: e.id ?? e.Id,
             fileName: e.fileName ?? e.FileName,
             contentType: e.contentType ?? e.ContentType,
             sizeBytes: Number(e.sizeBytes ?? e.SizeBytes ?? 0),
@@ -138,21 +206,39 @@ export class PurchaseOrderDetailsComponent implements OnInit {
             branchId: data.branchId ?? data.BranchId,
             branchName: data.branchName ?? data.BranchName,
             note: data.note ?? data.Note,
+            shipNote: data.shipNote ?? data.ShipNote, // opcional si lo agregas en back
             receiveNote: data.receiveNote ?? data.ReceiveNote,
             createdAtUtc: data.createdAtUtc ?? data.CreatedAtUtc,
-            receivedAtUtc: data.receivedAtUtc ?? data.ReceivedAtUtc,
+            confirmedAtUtc: data.confirmedAtUtc ?? data.ConfirmedAtUtc ?? data.receivedAtUtc ?? data.ReceivedAtUtc,
             items,
             evidence
           };
 
-          // preset: recibido = ordenado (rápido en móvil)
-          this.receivedMap = {};
+          // reset modos
+          this.shipMode = false;
+          this.receiveMode = false;
+
+          // init maps:
+          // shipped default = ordered (para admin cuando mande)
+          this.shippedMap = {};
           items.forEach(it => {
-            this.receivedMap[it.id] = this.clamp(it.quantityOrdered, 0, 999999);
+            const fallback = it.quantityShipped > 0 ? it.quantityShipped : it.quantityOrdered;
+            this.shippedMap[it.id] = this.clamp(fallback, 0, 999999);
           });
 
+          // received default = min(shipped, ordered) (para staff al recibir)
+          this.receivedMap = {};
+          items.forEach(it => {
+            const cap = this.capForReceive(it);
+            const fallback = it.quantityReceived > 0 ? it.quantityReceived : cap;
+            this.receivedMap[it.id] = this.clamp(fallback, 0, 999999);
+          });
+
+          this.shipNote = this.po.shipNote || '';
           this.receiveNote = this.po.receiveNote || '';
-          this.receiveMode = false;
+
+          // si ya está confirmada, limpia selección evidencia
+          if (this.isConfirmed()) this.clearSelected();
         },
         error: (err) => {
           console.error(err);
@@ -162,81 +248,85 @@ export class PurchaseOrderDetailsComponent implements OnInit {
       });
   }
 
-  // ===== status helpers =====
-  private statusNumber(): number | null {
-    const s = this.po?.status;
-    if (s == null) return null;
-    if (typeof s === 'number') return s;
-
-    const v = String(s).toLowerCase().trim();
-    if (v === '1' || v.includes('pending')) return 1;
-    if (v === '2' || v.includes('received')) return 2;
-    if (v === '3' || v.includes('cancel')) return 3;
-    return null;
+  back(): void {
+    this.router.navigateByUrl('/purchase-orders');
   }
 
-  isPending(): boolean { return this.statusNumber() === 1; }
-  isReceived(): boolean { return this.statusNumber() === 2; }
-  isCancelled(): boolean { return this.statusNumber() === 3; }
-
-  statusLabel(): string {
-    const n = this.statusNumber();
-    if (n === 1) return 'PENDIENTE';
-    if (n === 2) return 'RECIBIDA';
-    if (n === 3) return 'CANCELADA';
-    return String(this.po?.status ?? '');
-  }
-
-  formatDateTime(isoUtc?: string | null): string {
-    if (!isoUtc) return '';
-    const d = new Date(isoUtc); // UTC -> local
-    return new Intl.DateTimeFormat('es-MX', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(d);
-  }
-
-  // ===== UI =====
-  toggleReceiveMode(): void {
-    if (!this.isPending()) return;
-    this.receiveMode = !this.receiveMode;
-  }
-
-  inc(itemId: number, step = 1): void {
-    const v = Number(this.receivedMap[itemId] ?? 0);
-    this.receivedMap[itemId] = this.clamp(v + step, 0, 999999);
-  }
-
-  dec(itemId: number, step = 1): void {
-    const v = Number(this.receivedMap[itemId] ?? 0);
-    this.receivedMap[itemId] = this.clamp(v - step, 0, 999999);
-  }
-
-  setReceived(itemId: number, value: any): void {
-    const n = Number(value ?? 0);
-    this.receivedMap[itemId] = this.clamp(isNaN(n) ? 0 : n, 0, 999999);
-  }
-
-  setAllReceivedToOrdered(): void {
+  print(): void {
     if (!this.po) return;
-    this.po.items.forEach(it => (this.receivedMap[it.id] = this.clamp(it.quantityOrdered, 0, 999999)));
-    this.snack.open('Listo: recibido = ordenado', 'OK', { duration: 1200 });
+    this.router.navigateByUrl(`/purchase-orders/${this.po.id}/print`);
   }
 
-  setAllReceivedToZero(): void {
+  // ===== Admin: Ship =====
+  canShip(): boolean {
+    if (this.saving) return false;
+    if (!this.po) return false;
+    if (!this.isAdmin) return false;
+    if (!this.isCreated()) return false;
+    if (!this.po.items?.length) return false;
+    return this.po.items.every(it => Number(this.shippedMap[it.id] ?? 0) >= 0);
+  }
+
+  toggleShipMode(): void {
+    if (!this.isAdmin || !this.isCreated()) return;
+    this.shipMode = !this.shipMode;
+    if (this.shipMode) this.receiveMode = false;
+  }
+
+  ship(): void {
+    if (!this.po || !this.canShip()) return;
+
+    const items: ShipItemDto[] = this.po.items.map(it => ({
+      itemId: it.id,
+      quantityShipped: this.clamp(Number(this.shippedMap[it.id] ?? 0), 0, 999999)
+    }));
+
+    const payload = {
+      shipNote: (this.shipNote || '').trim(),
+      items
+    };
+
+    this.saving = true;
+    this.api.ship(this.po.id, payload)
+      .pipe(finalize(() => (this.saving = false)))
+      .subscribe({
+        next: () => {
+          this.snack.open('Pedido marcado EN CAMINO', 'OK', { duration: 1600 });
+          this.load();
+        },
+        error: (err) => {
+          console.error(err);
+          this.snack.open(err?.error || 'No se pudo mandar', 'Cerrar', { duration: 2500 });
+        }
+      });
+  }
+
+  setAllShippedToOrdered(): void {
     if (!this.po) return;
-    this.po.items.forEach(it => (this.receivedMap[it.id] = 0));
-    this.snack.open('Listo: recibido = 0', 'OK', { duration: 1200 });
+    this.po.items.forEach(it => (this.shippedMap[it.id] = this.clamp(it.quantityOrdered, 0, 999999)));
+    this.snack.open('Listo: enviado = ordenado', 'OK', { duration: 1200 });
   }
 
+  setAllShippedToZero(): void {
+    if (!this.po) return;
+    this.po.items.forEach(it => (this.shippedMap[it.id] = 0));
+    this.snack.open('Listo: enviado = 0', 'OK', { duration: 1200 });
+  }
+
+  // ===== Staff/Admin: Confirm (receive) =====
   canReceive(): boolean {
     if (this.saving) return false;
     if (!this.po) return false;
-    if (!this.isPending()) return false;
+    // ✅ Recibir SOLO cuando está EN CAMINO
+    if (!this.isInTransit()) return false;
     if (!this.po.items?.length) return false;
-
-    // valida que todos sean números >= 0
     return this.po.items.every(it => Number(this.receivedMap[it.id] ?? 0) >= 0);
+  }
+
+  toggleReceiveMode(): void {
+    if (!this.isInTransit()) return;
+    this.receiveMode = !this.receiveMode;
+    if (this.receiveMode) this.shipMode = false;
   }
 
   receive(): void {
@@ -244,7 +334,7 @@ export class PurchaseOrderDetailsComponent implements OnInit {
 
     const items: ReceiveItemDto[] = this.po.items.map(it => ({
       itemId: it.id,
-      quantityReceived: Number(this.receivedMap[it.id] ?? 0)
+      quantityReceived: this.clamp(Number(this.receivedMap[it.id] ?? 0), 0, this.capForReceive(it))
     }));
 
     const payload = {
@@ -254,30 +344,43 @@ export class PurchaseOrderDetailsComponent implements OnInit {
 
     this.saving = true;
 
-    // ✅ importante: usar API con responseType 'text' para evitar HttpErrorResponse con status 200
-    this.api.receive(this.po.id, payload)
+    // ✅ back ya tiene /confirm y alias /receive; usa el que tengas en tu api
+    this.api.confirm(this.po.id, payload)
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({
         next: () => {
-          this.snack.open('Orden recibida', 'OK', { duration: 1800 });
+          this.snack.open('Pedido CONFIRMADO', 'OK', { duration: 1800 });
           this.load();
         },
         error: (err) => {
           console.error(err);
-          this.snack.open(err?.error || 'Error al recibir', 'Cerrar', { duration: 2500 });
+          this.snack.open(err?.error || 'Error al confirmar', 'Cerrar', { duration: 2500 });
         }
       });
   }
 
+  setAllReceivedToCap(): void {
+    if (!this.po) return;
+    this.po.items.forEach(it => (this.receivedMap[it.id] = this.capForReceive(it)));
+    this.snack.open('Listo: recibido = enviado', 'OK', { duration: 1200 });
+  }
+
+  setAllReceivedToZero(): void {
+    if (!this.po) return;
+    this.po.items.forEach(it => (this.receivedMap[it.id] = 0));
+    this.snack.open('Listo: recibido = 0', 'OK', { duration: 1200 });
+  }
+
+  // ===== Cancel =====
   cancel(): void {
-    if (!this.isAdmin || !this.po || !this.isPending()) return;
+    if (!this.isAdmin || !this.po || !this.isCreated()) return;
 
     this.saving = true;
     this.api.cancel(this.po.id)
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({
         next: () => {
-          this.snack.open('Orden cancelada', 'OK', { duration: 1600 });
+          this.snack.open('Pedido cancelado', 'OK', { duration: 1600 });
           this.load();
         },
         error: (err) => {
@@ -287,39 +390,80 @@ export class PurchaseOrderDetailsComponent implements OnInit {
       });
   }
 
-  back(): void {
-    this.router.navigateByUrl('/purchase-orders');
+  // ===== Counters =====
+  inc(map: 'ship'|'recv', itemId: number, step = 1): void {
+    const src = map === 'ship' ? this.shippedMap : this.receivedMap;
+    const v = Number(src[itemId] ?? 0);
+    src[itemId] = this.clamp(v + step, 0, 999999);
+    if (map === 'recv' && this.po) {
+      // cap visual para recibir
+      const it = this.po.items.find(x => x.id === itemId);
+      if (it) src[itemId] = this.clamp(src[itemId], 0, this.capForReceive(it));
+    }
+  }
+
+  dec(map: 'ship'|'recv', itemId: number, step = 1): void {
+    const src = map === 'ship' ? this.shippedMap : this.receivedMap;
+    const v = Number(src[itemId] ?? 0);
+    src[itemId] = this.clamp(v - step, 0, 999999);
+  }
+
+  setValue(map: 'ship'|'recv', itemId: number, value: any): void {
+    const src = map === 'ship' ? this.shippedMap : this.receivedMap;
+    const n = Number(value ?? 0);
+    src[itemId] = this.clamp(isNaN(n) ? 0 : n, 0, 999999);
+
+    if (map === 'recv' && this.po) {
+      const it = this.po.items.find(x => x.id === itemId);
+      if (it) src[itemId] = this.clamp(src[itemId], 0, this.capForReceive(it));
+    }
+  }
+
+  private capForReceive(it: PoItem): number {
+    const shipped = Number(it.quantityShipped ?? 0);
+    const ordered = Number(it.quantityOrdered ?? 0);
+    // si ya existe shipped, cap = min(ordered, shipped); si no, cap = ordered
+    const cap = shipped > 0 ? Math.min(ordered, shipped) : ordered;
+    return this.clamp(cap, 0, 999999);
   }
 
   private clamp(n: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, n));
   }
 
-  print(): void {
-    if (!this.po) return;
-    this.router.navigateByUrl(`/purchase-orders/${this.po.id}/print`);
+  // =========================
+  // Evidencia (solo Confirmed)
+  // =========================
+  openEvidencePicker(): void {
+    if (!this.isConfirmed()) return;
+
+    if (this.evidenceInput?.nativeElement) {
+      this.evidenceInput.nativeElement.value = '';
+      this.evidenceInput.nativeElement.click();
+    }
   }
 
-  // =========================
-  // Evidencia
-  // =========================
   onEvidenceSelected(ev: Event): void {
     const input = ev.target as HTMLInputElement;
     const files = Array.from(input.files || []);
 
-    // limita a 5 archivos
     this.selectedFiles = files.slice(0, 5);
 
-    // limpia el input para poder seleccionar el mismo archivo otra vez
+    this.pendingPreviews.forEach(p => URL.revokeObjectURL(p.url));
+    this.pendingPreviews = this.selectedFiles.map(f => ({
+      name: f.name,
+      size: f.size,
+      isImage: f.type.startsWith('image/'),
+      url: URL.createObjectURL(f)
+    }));
+
     input.value = '';
-    if (this.selectedFiles.length > 0) {
-      // si quieres subir inmediato, descomenta:
-      // this.uploadEvidence();
-    }
   }
 
   uploadEvidence(): void {
     if (!this.po) return;
+    if (!this.isConfirmed()) return;
+
     if (this.selectedFiles.length === 0) {
       this.snack.open('Selecciona al menos 1 archivo', 'Cerrar', { duration: 1800 });
       return;
@@ -332,7 +476,7 @@ export class PurchaseOrderDetailsComponent implements OnInit {
       .subscribe({
         next: () => {
           this.snack.open('Evidencia subida', 'OK', { duration: 1500 });
-          this.selectedFiles = [];
+          this.clearSelected();
           this.load();
         },
         error: (err) => {
@@ -352,7 +496,7 @@ export class PurchaseOrderDetailsComponent implements OnInit {
     if (!this.isAdmin || !this.po) return;
 
     this.saving = true;
-    this.api.deleteEvidence(this.po.id, ev.id)
+    this.api.deleteEvidence(this.po.id, ev.fileName)
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({
         next: () => {
@@ -381,10 +525,13 @@ export class PurchaseOrderDetailsComponent implements OnInit {
 
   private apiFileUrl(u?: string | null): string {
     if (!u) return '';
-    // u suele venir "/uploads/..."
     if (u.startsWith('http')) return u;
-
-    // ✅ usa tu constant del front
     return `${API_BASE_URL}${u}`;
+  }
+
+  clearSelected(): void {
+    this.pendingPreviews.forEach(p => URL.revokeObjectURL(p.url));
+    this.pendingPreviews = [];
+    this.selectedFiles = [];
   }
 }

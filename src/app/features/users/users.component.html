@@ -2,60 +2,88 @@
   <div class="top">
     <div>
       <h1>Usuarios</h1>
-      <p class="muted">Crea usuarios para la sucursal y controla accesos.</p>
+      <p class="muted">Administra accesos, sucursales y contraseñas.</p>
     </div>
 
-    <button mat-raised-button color="primary" (click)="openCreate()">
-      <mat-icon>person_add</mat-icon>
-      Nuevo usuario
-    </button>
+    <div class="topActions">
+      <button mat-stroked-button type="button" (click)="load()">
+        <mat-icon>refresh</mat-icon>
+        Actualizar
+      </button>
+
+      <button mat-raised-button color="primary" type="button" (click)="openCreate()">
+        <mat-icon>person_add</mat-icon>
+        Nuevo
+      </button>
+    </div>
   </div>
 
   <mat-card appearance="outlined" class="card">
     <div class="toolbar">
       <mat-form-field appearance="outline" class="search">
         <mat-label>Buscar</mat-label>
-        <input matInput [(ngModel)]="q" (ngModelChange)="applyFilter()" placeholder="usuario o nombre" />
-        <button *ngIf="q" matSuffix mat-icon-button (click)="q=''; applyFilter()">
+        <input
+          matInput
+          [(ngModel)]="q"
+          (ngModelChange)="applyFilter()"
+          placeholder="usuario, nombre, sucursal o id"
+        />
+        <button *ngIf="q" matSuffix mat-icon-button type="button" (click)="q=''; applyFilter()">
           <mat-icon>close</mat-icon>
         </button>
       </mat-form-field>
-
-      <button mat-stroked-button (click)="load()">
-        <mat-icon>refresh</mat-icon>
-        Actualizar
-      </button>
     </div>
 
     <div class="loading" *ngIf="loading">
-      <mat-spinner diameter="30"></mat-spinner>
+      <mat-spinner diameter="28"></mat-spinner>
       <span>Cargando...</span>
     </div>
 
-    <div class="table-wrap" *ngIf="!loading">
+    <div class="tableWrap" *ngIf="!loading">
       <table mat-table [dataSource]="filtered" class="table">
 
-        <ng-container matColumnDef="username">
+        <!-- Usuario (Nombre + @username) -->
+        <ng-container matColumnDef="user">
           <th mat-header-cell *matHeaderCellDef>Usuario</th>
-          <td mat-cell *matCellDef="let u">{{ u.username }}</td>
+          <td mat-cell *matCellDef="let u">
+            <div class="uCell" (click)="openManage(u)" role="button" tabindex="0">
+              <div class="uName">{{ u.fullName }}</div>
+              <div class="uMeta muted">
+                <span class="at">&#64;</span>{{ u.username }} • ID {{ u.id }}
+              </div>
+            </div>
+          </td>
         </ng-container>
 
-        <ng-container matColumnDef="fullName">
-          <th mat-header-cell *matHeaderCellDef>Nombre</th>
-          <td mat-cell *matCellDef="let u">{{ u.fullName }}</td>
-        </ng-container>
-
+        <!-- Rol -->
         <ng-container matColumnDef="role">
           <th mat-header-cell *matHeaderCellDef>Rol</th>
           <td mat-cell *matCellDef="let u">
             <mat-chip-set>
               <mat-chip [ngClass]="u.role === 'Admin' ? 'chip-admin' : 'chip-staff'">
-                {{ u.role === 'Admin' ? 'Admin' : 'Operador' }}
+                {{ roleLabel(u) }}
               </mat-chip>
             </mat-chip-set>
           </td>
         </ng-container>
 
+        <!-- Sucursales -->
+        <ng-container matColumnDef="branches">
+          <th mat-header-cell *matHeaderCellDef>Sucursales</th>
+          <td mat-cell *matCellDef="let u">
+            <div class="bCell">
+              <div class="main">
+                <span class="badge">Principal</span>
+                <span>{{ u.branchName || ('#' + u.branchId) }}</span>
+              </div>
+              <div class="subs muted" *ngIf="u.branchIds?.length">
+                Acceso: {{ branchesLabel(u) }}
+              </div>
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- Activo -->
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef>Activo</th>
           <td mat-cell *matCellDef="let u">
@@ -66,10 +94,25 @@
           </td>
         </ng-container>
 
+        <!-- Acciones -->
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef></th>
           <td mat-cell *matCellDef="let u" class="actions">
-            <!-- luego metemos reset password aquí -->
+            <button mat-stroked-button type="button" class="manageBtn" (click)="openManage(u)">
+              <mat-icon>manage_accounts</mat-icon>
+              Administrar
+            </button>
+
+            <button mat-icon-button type="button" [matMenuTriggerFor]="menu">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+
+            <mat-menu #menu="matMenu">
+              <button mat-menu-item type="button" (click)="openManage(u)">
+                <mat-icon>settings</mat-icon>
+                <span>Administrar</span>
+              </button>
+            </mat-menu>
           </td>
         </ng-container>
 
